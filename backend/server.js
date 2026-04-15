@@ -43,9 +43,10 @@ async function startServer() {
     })
   );
 
-  // 4. Express Server starten
-  app.listen(PORT, () => {
-    console.log(`🚀 Server läuft auf http://localhost:${PORT}/graphql`);
+  // 4. Express Server starten (auf allen Interfaces, damit Netzwerkzugriff moeglich ist)
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 GraphQL: http://localhost:${PORT}/graphql`);
+    console.log(`🌐 Im Netz:  http://192.168.178.33:${PORT}/graphql`);
   });
 }
 

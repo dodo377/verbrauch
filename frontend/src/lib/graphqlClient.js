@@ -1,7 +1,7 @@
 import { createClient, fetchExchange } from 'urql';
 
 export const client = createClient({
-  url: 'http://localhost:4000/graphql',
+  url: '/graphql',  // Vite proxied -> kein hardcoded IP noetig
   exchanges: [fetchExchange],
   preferGetMethod: false,
   fetchOptions: () => {
