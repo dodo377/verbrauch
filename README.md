@@ -75,7 +75,7 @@ verbrauch_new/
 │       ├── lib/
 │       └── pages/
 │           └── Login.jsx       # Fehler-Mapping, Lockout-Meldung
-├── export_readings.json
+├── demo_readings_import.json
 └── README.md
 ```
 
