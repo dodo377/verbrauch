@@ -19,6 +19,7 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 - Wasser als Verbrauch auf Basis der wöchentlichen Ablesungen
 - Außentemperatur als Realwertverlauf
 - Müll als Dokumentation nach Tonnenart und Anzahl der Rausstellungen
+- Urlaubszeiträume zur automatischen Glättung bei fehlenden Mess-Tagen
 
 ### Dashboard-Features
 
@@ -28,6 +29,7 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 - AI-Insights mit Trend- und Anomalie-Erkennung
 - klickbare Strom-Auffälligkeiten mit Bemerkungsfunktion
 - Dokumentation von Müll-Rausstellungen nach Art und Häufigkeit
+- Urlaub im Frontend eintragen/löschen (Start/Ende + optionale Notiz)
 
 ## Tech Stack
 
@@ -61,6 +63,7 @@ verbrauch_new/
 │   └── src/
 │       ├── context/          # JWT-Context (buildContext)
 │       ├── models/
+│       │   └── VacationPeriod.js
 │       ├── resolvers/
 │       │   └── requireAuth.js  # zentraler Auth-Guard
 │       ├── schema/
@@ -181,6 +184,7 @@ Darauf ist die Service-Schicht vorbereitet und berücksichtigt beide Felder in d
 - Eingabe: Zählerstand
 - Anzeige im Diagramm: Differenz zwischen zwei Ablesungen
 - Statistik: durchschnittlicher Tagesverbrauch im gewählten Zeitraum
+- Bei Messlücken wird Verbrauch auf Tage verteilt; Urlaubstage werden mit 0 berücksichtigt
 
 #### Wasser
 
@@ -270,6 +274,31 @@ Beispiel:
 - `getChartData(type: ReadingType!, ...)`
 - `getDashboardInsights(type: ReadingType!, ...)`
 - `getWasteSummary(...)`
+- `getVacationPeriods()`
+- `addVacationPeriod(startDate, endDate, note)`
+- `deleteVacationPeriod(id)`
+
+### Urlaub (GraphQL)
+
+```graphql
+query {
+  getVacationPeriods {
+    id
+    startDate
+    endDate
+    note
+  }
+}
+
+mutation {
+  addVacationPeriod(startDate: "2026-03-29", endDate: "2026-04-05", note: "Urlaub") {
+    id
+    startDate
+    endDate
+    note
+  }
+}
+```
 
 ## Lokale Entwicklung
 
@@ -377,6 +406,8 @@ Verantwortlich für:
 - Aufbereitung der Chart-Daten
 - Müll-Auswertung
 - Aktualisierung von Bemerkungen
+- Urlaubssensitive Tagesverteilung bei Messlücken
+- Verwalten von Urlaubszeiträumen (`get/add/deleteVacationPeriod`)
 
 ### `DashboardInsightsService`
 
@@ -393,6 +424,7 @@ Verantwortlich für:
 - `ConsumptionChart` visualisiert Daten, berechnet sie aber nicht fachlich neu
 - `Dashboard` orchestriert Auswahl, Abfragen und Darstellung
 - Auffällige Stromwerte sind klickbar und können mit Bemerkungen versehen werden
+- Urlaubstage können direkt im Dashboard gepflegt werden und werden im Chart berücksichtigt
 
 ## Nächste sinnvolle Ausbaustufen
 
