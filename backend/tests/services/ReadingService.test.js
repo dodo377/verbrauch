@@ -184,6 +184,69 @@ describe('ReadingService', () => {
     });
   });
 
+  describe('updateReading()', () => {
+    it('sollte Wert und Notiz einer Ablesung aktualisieren', async () => {
+      const mockUser = await User.create({
+        username: 'update_user',
+        passwordHash: 'hashed_pw_123'
+      });
+
+      const reading = await Reading.create({
+        userId: mockUser._id,
+        type: 'household',
+        value: 420,
+        note: 'alt',
+        timestamp: new Date('2026-04-02T12:00:00.000Z'),
+      });
+
+      const updated = await ReadingService.updateReading(mockUser._id.toString(), reading._id.toString(), {
+        value: 425.5,
+        note: 'neu',
+      });
+
+      expect(updated.value).toBe(425.5);
+      expect(updated.note).toBe('neu');
+    });
+
+    it('sollte einen Fehler werfen, wenn keine gültigen Update-Felder übergeben werden', async () => {
+      const mockUser = await User.create({
+        username: 'update_no_fields_user',
+        passwordHash: 'hashed_pw_123'
+      });
+
+      const reading = await Reading.create({
+        userId: mockUser._id,
+        type: 'household',
+        value: 100,
+      });
+
+      await expect(
+        ReadingService.updateReading(mockUser._id.toString(), reading._id.toString(), {})
+      ).rejects.toThrow('Fehler beim Aktualisieren der Ablesung');
+    });
+  });
+
+  describe('deleteReading()', () => {
+    it('sollte eine vorhandene Ablesung löschen', async () => {
+      const mockUser = await User.create({
+        username: 'delete_user',
+        passwordHash: 'hashed_pw_123'
+      });
+
+      const reading = await Reading.create({
+        userId: mockUser._id,
+        type: 'water',
+        value: 20,
+      });
+
+      const deleted = await ReadingService.deleteReading(mockUser._id.toString(), reading._id.toString());
+      expect(deleted).toBe(true);
+
+      const persisted = await Reading.findById(reading._id);
+      expect(persisted).toBeNull();
+    });
+  });
+
   describe('getWasteSummary()', () => {
     it('sollte Müll-Einträge nach Tonnenart aggregieren und auch migrierte user_id-Daten berücksichtigen', async () => {
       const userId = new mongoose.Types.ObjectId();

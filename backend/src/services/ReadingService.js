@@ -162,6 +162,77 @@ static async updateReadingNote(userId, id, note) {
   }
 }
 
+static async updateReading(userId, id, updates = {}) {
+  try {
+    const payload = {};
+
+    if (updates.value !== undefined && updates.value !== null) {
+      const parsedValue = Number(updates.value);
+      if (!Number.isFinite(parsedValue)) {
+        throw new Error('Wert ist ungültig.');
+      }
+      payload.value = parsedValue;
+    }
+
+    if (updates.note !== undefined) {
+      payload.note = updates.note === null ? '' : String(updates.note).trim();
+    }
+
+    if (updates.subtype !== undefined) {
+      payload.subtype = updates.subtype === null ? '' : String(updates.subtype).trim();
+    }
+
+    if (updates.timestamp !== undefined && updates.timestamp !== null) {
+      const normalizedInput = Number.isFinite(Number(updates.timestamp))
+        ? Number(updates.timestamp)
+        : updates.timestamp;
+      const parsedDate = new Date(normalizedInput);
+
+      if (Number.isNaN(parsedDate.getTime())) {
+        throw new Error('Zeitstempel ist ungültig.');
+      }
+
+      payload.timestamp = parsedDate;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      throw new Error('Keine gültigen Felder zum Aktualisieren übergeben.');
+    }
+
+    const reading = await Reading.findOneAndUpdate(
+      {
+        _id: id,
+        $or: [{ userId: userId }, { user_id: userId }]
+      },
+      {
+        $set: payload
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!reading) {
+      throw new Error('Ablesung nicht gefunden.');
+    }
+
+    return reading;
+  } catch (error) {
+    throw new Error(`Fehler beim Aktualisieren der Ablesung: ${error.message}`);
+  }
+}
+
+static async deleteReading(userId, id) {
+  try {
+    const deleted = await Reading.findOneAndDelete({
+      _id: id,
+      $or: [{ userId: userId }, { user_id: userId }],
+    });
+
+    return Boolean(deleted);
+  } catch (error) {
+    throw new Error(`Fehler beim Löschen der Ablesung: ${error.message}`);
+  }
+}
+
 static async getVacationPeriods(userId) {
   try {
     const periods = await VacationPeriod.find({

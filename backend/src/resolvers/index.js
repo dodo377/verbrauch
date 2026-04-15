@@ -57,6 +57,16 @@ export const resolvers = {
 
       return await ReadingService.updateReadingNote(user.id, id, note);
     },
+    updateReading: async (_, { id, value, note, subtype, timestamp }, context) => {
+      const user = requireAuth(context, 'Nicht autorisiert. Bitte logge dich zuerst ein.');
+
+      return await ReadingService.updateReading(user.id, id, {
+        value,
+        note,
+        subtype,
+        timestamp,
+      });
+    },
     addVacationPeriod: async (_, { startDate, endDate, note }, context) => {
       const user = requireAuth(context, 'Nicht autorisiert. Bitte logge dich zuerst ein.');
       return await ReadingService.addVacationPeriod(user.id, { startDate, endDate, note });
@@ -81,7 +91,10 @@ export const resolvers = {
       });
     },
     
-    deleteReading: () => false,
+    deleteReading: async (_, { id }, context) => {
+      const user = requireAuth(context, 'Nicht autorisiert. Bitte logge dich zuerst ein.');
+      return await ReadingService.deleteReading(user.id, id);
+    },
   },
 
   Reading: {

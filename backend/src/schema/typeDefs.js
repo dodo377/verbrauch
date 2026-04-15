@@ -56,6 +56,7 @@ export const typeDefs = gql`
     login(username: String!, password: String!): AuthPayload!
     
     addReading(type: ReadingType!, value: Float!, note: String, subtype: String, timestamp: String): Reading!
+    updateReading(id: ID!, value: Float, note: String, subtype: String, timestamp: String): Reading!
     updateReadingNote(id: ID!, note: String!): Reading!
     addVacationPeriod(startDate: String!, endDate: String!, note: String): VacationPeriod!
     deleteVacationPeriod(id: ID!): Boolean!

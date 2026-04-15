@@ -33,6 +33,25 @@ export const UPDATE_READING_NOTE = gql`
   }
 `;
 
+export const UPDATE_READING = gql`
+  mutation UpdateReading($id: ID!, $value: Float, $note: String, $subtype: String, $timestamp: String) {
+    updateReading(id: $id, value: $value, note: $note, subtype: $subtype, timestamp: $timestamp) {
+      id
+      type
+      value
+      timestamp
+      note
+      subtype
+    }
+  }
+`;
+
+export const DELETE_READING = gql`
+  mutation DeleteReading($id: ID!) {
+    deleteReading(id: $id)
+  }
+`;
+
 export const ADD_VACATION_PERIOD = gql`
   mutation AddVacationPeriod($startDate: String!, $endDate: String!, $note: String) {
     addVacationPeriod(startDate: $startDate, endDate: $endDate, note: $note) {

@@ -1,8 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from 'urql';
 import { GET_DASHBOARD_DATA } from '../graphql/queries.js';
-import { ADD_READING, UPDATE_READING_NOTE, ADD_VACATION_PERIOD, DELETE_VACATION_PERIOD } from '../graphql/mutations.js';
+import {
+  ADD_READING,
+  UPDATE_READING_NOTE,
+  UPDATE_READING,
+  DELETE_READING,
+  ADD_VACATION_PERIOD,
+  DELETE_VACATION_PERIOD,
+} from '../graphql/mutations.js';
 import ConsumptionChart from '../components/ConsumptionChart.jsx';
+import Toast from '../components/Toast.jsx';
 import {
   TYPES,
   WASTE_SUBTYPES,
@@ -29,6 +37,9 @@ export default function Dashboard() {
   const [vacationStartDate, setVacationStartDate] = useState('');
   const [vacationEndDate, setVacationEndDate] = useState('');
   const [vacationNote, setVacationNote] = useState('');
+  const [editingReadingId, setEditingReadingId] = useState(null);
+  const [editingForm, setEditingForm] = useState({ value: '', note: '', subtype: WASTE_SUBTYPES[0].id });
+  const [toast, setToast] = useState({ message: '', type: 'success' });
 
   const rangeVariables = useMemo(() => getRangeVariables(selectedRange), [selectedRange]);
 
@@ -40,6 +51,8 @@ export default function Dashboard() {
 
   const [addResult, addReading] = useMutation(ADD_READING);
   const [updateNoteResult, updateReadingNote] = useMutation(UPDATE_READING_NOTE);
+  const [updateReadingResult, updateReading] = useMutation(UPDATE_READING);
+  const [deleteReadingResult, deleteReading] = useMutation(DELETE_READING);
   const [addVacationResult, addVacationPeriod] = useMutation(ADD_VACATION_PERIOD);
   const [deleteVacationResult, deleteVacationPeriod] = useMutation(DELETE_VACATION_PERIOD);
 
@@ -140,9 +153,69 @@ export default function Dashboard() {
     reexecuteQuery({ requestPolicy: 'network-only' });
   };
 
+  const handleStartEditReading = (reading) => {
+    setEditingReadingId(reading.id);
+    setEditingForm({
+      value: activeType === 'waste' ? '' : String(reading.value ?? ''),
+      note: reading.note || '',
+      subtype: reading.subtype || WASTE_SUBTYPES[0].id,
+    });
+  };
+
+  const handleCancelEditReading = () => {
+    setEditingReadingId(null);
+    setEditingForm({ value: '', note: '', subtype: WASTE_SUBTYPES[0].id });
+  };
+
+  const handleSaveReading = async (id) => {
+    const variables = {
+      id,
+      note: editingForm.note.trim() || null,
+    };
+
+    if (activeType === 'waste') {
+      variables.subtype = editingForm.subtype;
+    } else {
+      const parsedValue = Number(editingForm.value);
+      if (!Number.isFinite(parsedValue)) {
+        setToast({ message: 'Ungültiger Wert', type: 'error' });
+        return;
+      }
+      variables.value = parsedValue;
+    }
+
+    const result = await updateReading(variables);
+    if (result.error) {
+      setToast({ message: 'Fehler beim Speichern', type: 'error' });
+      return;
+    }
+
+    setToast({ message: 'Ablesung aktualisiert', type: 'success' });
+    handleCancelEditReading();
+    reexecuteQuery({ requestPolicy: 'network-only' });
+  };
+
+  const handleDeleteReading = async (id) => {
+    const confirmed = window.confirm('Diesen Eintrag wirklich löschen?');
+    if (!confirmed) return;
+
+    const result = await deleteReading({ id });
+    if (result.error) {
+      setToast({ message: 'Fehler beim Löschen', type: 'error' });
+      return;
+    }
+
+    setToast({ message: 'Ablesung gelöscht', type: 'success' });
+    if (editingReadingId === id) {
+      handleCancelEditReading();
+    }
+    reexecuteQuery({ requestPolicy: 'network-only' });
+  };
+
   useEffect(() => {
     setSelectedAnomaly(null);
     setAnomalyNote('');
+    handleCancelEditReading();
   }, [activeType, selectedRange]);
 
   if (error) return <div className="p-20 bg-red-500 text-white">Fehler: {error.message}</div>;
@@ -377,22 +450,99 @@ export default function Dashboard() {
                 <>
                   {allReadings.slice(0, 10).map((r) => (
                     <div key={r.id} className="border-b border-gray-50 dark:border-gray-700 pb-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500 text-sm">
-                          {new Date(Number(r.timestamp)).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
-                        </span>
-                        {activeType === 'waste' ? (
-                          <span className="font-bold flex items-center gap-2">
-                            <span aria-hidden="true">{getWasteSubtypeMeta(r.subtype).icon}</span>
-                            <span>{getWasteSubtypeMeta(r.subtype).label}</span>
-                          </span>
-                        ) : (
-                          <span className="font-bold">{Number(r.value).toLocaleString('de-DE')}</span>
-                        )}
-                      </div>
-                      {r.note ? (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Bemerkung: {r.note}</p>
-                      ) : null}
+                      {editingReadingId === r.id ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500 text-sm">
+                              {new Date(Number(r.timestamp)).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                            </span>
+                            <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold">Bearbeiten</span>
+                          </div>
+
+                          {activeType === 'waste' ? (
+                            <select
+                              value={editingForm.subtype}
+                              onChange={(e) => setEditingForm((prev) => ({ ...prev, subtype: e.target.value }))}
+                              className="w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                            >
+                              {WASTE_SUBTYPES.map((subtype) => (
+                                <option key={subtype.id} value={subtype.id}>{subtype.icon} {subtype.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editingForm.value}
+                              onChange={(e) => setEditingForm((prev) => ({ ...prev, value: e.target.value }))}
+                              className="w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                              placeholder="Wert"
+                            />
+                          )}
+
+                          <input
+                            type="text"
+                            value={editingForm.note}
+                            onChange={(e) => setEditingForm((prev) => ({ ...prev, note: e.target.value }))}
+                            className="w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                            placeholder="Bemerkung (optional)"
+                          />
+
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveReading(r.id)}
+                              disabled={updateReadingResult.fetching}
+                              className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {updateReadingResult.fetching ? 'Speichert...' : 'Speichern'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelEditReading}
+                              className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                            >
+                              Abbrechen
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 text-sm">
+                              {new Date(Number(r.timestamp)).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                            </span>
+                            {activeType === 'waste' ? (
+                              <span className="font-bold flex items-center gap-2">
+                                <span aria-hidden="true">{getWasteSubtypeMeta(r.subtype).icon}</span>
+                                <span>{getWasteSubtypeMeta(r.subtype).label}</span>
+                              </span>
+                            ) : (
+                              <span className="font-bold">{Number(r.value).toLocaleString('de-DE')}</span>
+                            )}
+                          </div>
+                          {r.note ? (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Bemerkung: {r.note}</p>
+                          ) : null}
+                          <div className="mt-2 flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditReading(r)}
+                              className="text-xs text-blue-600 hover:underline"
+                            >
+                              Bearbeiten
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReading(r.id)}
+                              disabled={deleteReadingResult.fetching}
+                              className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                            >
+                              Löschen
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
 
@@ -505,6 +655,12 @@ export default function Dashboard() {
         </section>
 
       </main>
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: '', type: 'success' })}
+      />
     </div>
   );
 }
