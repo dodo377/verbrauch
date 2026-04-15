@@ -1,0 +1,24 @@
+{
+  "name": "verbrauch-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules npx jest"
+  },
+  "dependencies": {
+    "@apollo/server": "^5.5.0",
+    "@as-integrations/express4": "^1.1.2",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.22.1",
+    "graphql": "^16.13.2",
+    "graphql-tag": "^2.12.6",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.x.x"
+  },
+  "devDependencies": {
+    "jest": "^29.x.x",
+    "mongodb-memory-server": "^9.x.x"
+  }
+}

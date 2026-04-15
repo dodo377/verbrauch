@@ -1,0 +1,11 @@
+# Umgebungsvariablen – niemals committen
+.env
+.env.local
+.env.*.local
+
+# Abhängigkeiten
+node_modules/
+
+# Build-Artefakte
+dist/
+build/

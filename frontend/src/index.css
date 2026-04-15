@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* Basis-Styling und unser manueller Dark Mode */
+body {
+  @apply bg-gray-50 text-gray-900 transition-colors duration-300;
+}
+
+.dark body {
+  @apply bg-gray-900 text-gray-100;
+}
