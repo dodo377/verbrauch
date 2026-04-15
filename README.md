@@ -277,6 +277,9 @@ Beispiel:
 - `getVacationPeriods()`
 - `addVacationPeriod(startDate, endDate, note)`
 - `deleteVacationPeriod(id)`
+- `addReading(type, value, note, subtype)`
+- `updateReading(id, value, note, subtype)`
+- `deleteReading(id)`
 
 ### Urlaub (GraphQL)
 
@@ -296,6 +299,47 @@ mutation {
     startDate
     endDate
     note
+  }
+}
+```
+
+### Ablesungen (GraphQL)
+
+Ablesungen können erstellt, gelesen, aktualisiert und gelöscht werden.
+
+```graphql
+mutation AddReading($type: ReadingType!, $value: Float!, $note: String, $subtype: String) {
+  addReading(type: $type, value: $value, note: $note, subtype: $subtype) {
+    id
+    type
+    value
+    timestamp
+    note
+  }
+}
+
+mutation UpdateReading($id: ID!, $value: Float, $note: String, $subtype: String) {
+  updateReading(id: $id, value: $value, note: $note, subtype: $subtype) {
+    id
+    type
+    value
+    timestamp
+    note
+  }
+}
+
+mutation DeleteReading($id: ID!) {
+  deleteReading(id: $id)
+}
+
+query GetReadings($type: ReadingType!, $limit: Int) {
+  getReadings(type: $type, limit: $limit) {
+    id
+    type
+    value
+    timestamp
+    note
+    subtype
   }
 }
 ```
@@ -372,7 +416,7 @@ Der aktuelle Fokus der Tests liegt auf der Service-Schicht und dem Auth-Context,
 - Login-Lockout nach Fehlversuchen
 - Reset des Lockouts bei erfolgreichem Login
 
-Aktueller Teststatus: 4 Suites, 26 Tests, alle grün.
+Aktueller Teststatus: 4 Suites, 29 Tests, alle grün (+3 Tests für `updateReading` und `deleteReading`).
 
 ## Entwicklungsworkflow
 
@@ -401,13 +445,15 @@ Verantwortlich für:
 
 Verantwortlich für:
 
-- Speichern neuer Readings
-- Laden von Readings
-- Aufbereitung der Chart-Daten
-- Müll-Auswertung
-- Aktualisierung von Bemerkungen
+- Speichern neuer Readings (`addReading`)
+- Laden von Readings (`getReadings`)
+- Aktualisierung von Readings (`updateReading`)
+- Löschen von Readings (`deleteReading`)
+- Aufbereitung der Chart-Daten (`getChartData`)
+- Müll-Auswertung (`getWasteSummary`)
+- Aktualisierung von Bemerkungen (`updateReadingNote`)
 - Urlaubssensitive Tagesverteilung bei Messlücken
-- Verwalten von Urlaubszeiträumen (`get/add/deleteVacationPeriod`)
+- Verwalten von Urlaubszeiträumen (`getVacationPeriods`, `addVacationPeriod`, `deleteVacationPeriod`)
 
 ### `DashboardInsightsService`
 
@@ -425,6 +471,8 @@ Verantwortlich für:
 - `Dashboard` orchestriert Auswahl, Abfragen und Darstellung
 - Auffällige Stromwerte sind klickbar und können mit Bemerkungen versehen werden
 - Urlaubstage können direkt im Dashboard gepflegt werden und werden im Chart berücksichtigt
+- **Inline-Edit/Delete**: in der Liste „Letzte Einträge" können Ablesungen durch Klick auf „Bearbeiten" direkt editiert werden (Wert, Notiz, Subtype)
+- **Toast-Feedback**: Nach Speichern oder Löschen erscheint eine kurze Bestätigung / Fehlerbenachrichtigung unten rechts
 
 ## Nächste sinnvolle Ausbaustufen
 
@@ -433,6 +481,7 @@ Verantwortlich für:
 - Export / Reporting
 - dedizierte Waste-Planung mit nächstem Abholtermin
 - Login-Lockout auf Redis-Basis für Produktivbetrieb mit mehreren Instanzen
+- Bulk-Import / CSV-Upload von Ablesungen
 
 ## Dokumentationsprinzip
 
@@ -474,6 +523,17 @@ Bei neuen Features sollten mindestens folgende Fragen beantwortet werden:
 - Ist das Verhalten über Zeiträume hinweg korrekt (7 Tage, 30 Tage, Monat)?
 - Ist Auth-Schutz vorhanden, wenn der Resolver Nutzerdaten verwendet?
 - Werden fehlende oder ungültige Tokens sauber abgefangen?
+
+### Frontend-Komponenten
+
+#### `Toast`
+
+Einfache Benachrichtigungskomponente für Erfolgs- und Fehlermeldungen. Auto-Closes nach 3 Sekunden.
+
+- Position: unten rechts, `z-50`
+- Typen: `success` (grün) oder `error` (rot)
+- verwendet in `Dashboard` für Feedback zu Speichern/Löschen/Fehler
+- optional mit onClose-Callback für benutzerdefinierte Cleanup-Logik
 
 ### Architekturregeln für neue Features
 
