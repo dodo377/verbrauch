@@ -33,6 +33,19 @@ export function getRangeVariables(selectedRange) {
     return { days: 30, startDate: null, endDate: null };
   }
 
+  if (selectedRange.startsWith('year:')) {
+    const year = Number(selectedRange.replace('year:', ''));
+    if (!year) {
+      return { days: 30, startDate: null, endDate: null };
+    }
+
+    return {
+      days: null,
+      startDate: new Date(year, 0, 1, 0, 0, 0, 0).getTime().toString(),
+      endDate: new Date(year, 11, 31, 23, 59, 59, 999).getTime().toString(),
+    };
+  }
+
   const [year, month] = selectedRange.split('-').map(Number);
   if (!year || !month) {
     return { days: 30, startDate: null, endDate: null };
@@ -48,12 +61,20 @@ export function getRangeVariables(selectedRange) {
 export function getSelectedRangeLabel(selectedRange, monthOptions) {
   if (selectedRange === '7d') return 'Letzte 7 Tage';
   if (selectedRange === '30d') return 'Letzte 30 Tage';
+  if (selectedRange.startsWith('year:')) {
+    const year = selectedRange.replace('year:', '');
+    return `Jahr ${year}`;
+  }
   return monthOptions.find((option) => option.id === selectedRange)?.label || 'Ausgewählter Monat';
 }
 
 export function getSelectedRangeText(selectedRange, monthOptions) {
   if (selectedRange === '7d') return 'letzte 7 Tage';
   if (selectedRange === '30d') return 'letzte 30 Tage';
+  if (selectedRange.startsWith('year:')) {
+    const year = selectedRange.replace('year:', '');
+    return `im Jahr ${year}`;
+  }
 
   const monthLabel = monthOptions.find((option) => option.id === selectedRange)?.label;
   return monthLabel ? `im ${monthLabel}` : 'im ausgewählten Monat';

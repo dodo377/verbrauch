@@ -86,13 +86,45 @@ export default function Dashboard() {
     return Array.from(months.values()).sort((a, b) => b.sortValue - a.sortValue);
   }, [allReadings]);
 
+  const yearOptions = useMemo(() => {
+    const years = new Map();
+
+    allReadings.forEach((reading) => {
+      const timestamp = Number(reading.timestamp);
+      if (!Number.isFinite(timestamp)) return;
+
+      const date = new Date(timestamp);
+      const year = date.getFullYear();
+      const key = `year:${year}`;
+
+      if (!years.has(key)) {
+        years.set(key, {
+          id: key,
+          label: String(year),
+          sortValue: year,
+        });
+      }
+    });
+
+    return Array.from(years.values()).sort((a, b) => b.sortValue - a.sortValue);
+  }, [allReadings]);
+
+  const latestEntryUnit = useMemo(() => getDisplayUnit(activeType), [activeType]);
+  const valueInputPlaceholder = useMemo(() => {
+    if (activeType === 'temperature') return 'Messwert in °C...';
+    return `Zählerstand in ${latestEntryUnit}...`;
+  }, [activeType, latestEntryUnit]);
+
   useEffect(() => {
     if (selectedRange === '7d' || selectedRange === '30d') return;
 
-    if (!monthOptions.some((option) => option.id === selectedRange)) {
+    const isMonthRange = monthOptions.some((option) => option.id === selectedRange);
+    const isYearRange = yearOptions.some((option) => option.id === selectedRange);
+
+    if (!isMonthRange && !isYearRange) {
       setSelectedRange('30d');
     }
-  }, [monthOptions, selectedRange]);
+  }, [monthOptions, yearOptions, selectedRange]);
 
   const selectedRangeLabel = useMemo(() => getSelectedRangeLabel(selectedRange, monthOptions), [monthOptions, selectedRange]);
   const selectedRangeText = useMemo(() => getSelectedRangeText(selectedRange, monthOptions), [monthOptions, selectedRange]);
@@ -389,7 +421,7 @@ export default function Dashboard() {
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder={activeType === 'temperature' ? 'Messwert...' : 'Zählerstand...'}
+                  placeholder={valueInputPlaceholder}
                   required
                 />
               )}
@@ -518,7 +550,10 @@ export default function Dashboard() {
                                 <span>{getWasteSubtypeMeta(r.subtype).label}</span>
                               </span>
                             ) : (
-                              <span className="font-bold">{Number(r.value).toLocaleString('de-DE')}</span>
+                              <span className="font-bold">
+                                {Number(r.value).toLocaleString('de-DE')}
+                                <span className="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400">{latestEntryUnit}</span>
+                              </span>
                             )}
                           </div>
                           {r.note ? (
@@ -605,9 +640,25 @@ export default function Dashboard() {
               </div>
 
               <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 dark:text-gray-400">Jahr:</span>
+                <select
+                  value={selectedRange.startsWith('year:') ? selectedRange : ''}
+                  onChange={(e) => e.target.value && setSelectedRange(e.target.value)}
+                  className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+                >
+                  <option value="">Jahr auswählen</option>
+                  {yearOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Monat:</span>
                 <select
-                  value={selectedRange.startsWith('20') ? selectedRange : ''}
+                  value={selectedRange.includes('-') ? selectedRange : ''}
                   onChange={(e) => e.target.value && setSelectedRange(e.target.value)}
                   className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
                 >
