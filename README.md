@@ -2,6 +2,26 @@
 
 Energie-, Wasser-, Temperatur- und Müll-Dashboard mit Node.js/GraphQL-Backend, MongoDB und React/Tailwind-Frontend.
 
+## Quick Start
+
+```bash
+# 1) Backend starten
+cd backend
+cp .env.example .env   # einmalig
+npm install
+node server.js
+```
+
+```bash
+# 2) Frontend starten (zweites Terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+- Frontend: `http://localhost:5173`
+- Backend (GraphQL): `http://localhost:4000/graphql`
+
 ## Ziel des Projekts
 
 Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem klaren Fokus auf:
@@ -72,6 +92,7 @@ verbrauch_new/
 │           ├── DashboardInsightsService.js
 │           └── ReadingService.js
 ├── frontend/
+│   ├── README.md            # Frontend-spezifische Start-/Build-Doku
 │   └── src/
 │       ├── components/
 │       ├── graphql/
@@ -348,7 +369,7 @@ query GetReadings($type: ReadingType!, $limit: Int) {
 
 ## Voraussetzungen
 
-- Node.js
+- Node.js 18+
 - npm
 - laufende MongoDB-Instanz
 
@@ -367,9 +388,14 @@ Hinweis: Der Server verbindet sich mit MongoDB und stellt GraphQL unter `http://
 
 Aus dem Ordner [frontend](frontend):
 
-- `npm run dev`
+```bash
+npm install
+npm run dev
+```
 
 Standardmäßig läuft das Frontend unter `http://localhost:5173/`.
+
+Hinweis: Das Frontend nutzt `/graphql` und leitet über den Vite-Proxy automatisch auf `http://localhost:4000` weiter.
 
 ## Zugriff im Heimnetz
 
