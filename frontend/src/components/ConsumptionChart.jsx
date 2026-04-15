@@ -114,7 +114,11 @@ export default function ConsumptionChart({ type, data: chartData }) {
             <Tooltip cursor={{ fill: 'transparent' }} content={<CustomTooltip />} />
             <Bar dataKey="value" fill={mainColor} radius={[4, 4, 0, 0]} maxBarSize={32}>
               {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fillOpacity={0.8} />
+                <Cell
+                  key={`cell-${index}`}
+                  fill={entry.isVacation ? '#9CA3AF' : mainColor}
+                  fillOpacity={entry.isVacation ? 0.4 : 0.8}
+                />
               ))}
             </Bar>
           </BarChart>

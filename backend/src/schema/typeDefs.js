@@ -46,6 +46,7 @@ export const typeDefs = gql`
     getChartData(type: ReadingType!, days: Int, startDate: String, endDate: String): [ChartDataPoint!]!
     getDashboardInsights(type: ReadingType!, days: Int, startDate: String, endDate: String): DashboardInsights!
     getWasteSummary(days: Int, startDate: String, endDate: String): [WasteSummaryItem!]!
+    getVacationPeriods: [VacationPeriod!]!
   }
 
   # --- MUTATIONS (Daten ändern) ---
@@ -56,6 +57,8 @@ export const typeDefs = gql`
     
     addReading(type: ReadingType!, value: Float!, note: String, subtype: String, timestamp: String): Reading!
     updateReadingNote(id: ID!, note: String!): Reading!
+    addVacationPeriod(startDate: String!, endDate: String!, note: String): VacationPeriod!
+    deleteVacationPeriod(id: ID!): Boolean!
     
     deleteReading(id: ID!): Boolean!
   }
@@ -65,6 +68,14 @@ export const typeDefs = gql`
         date: String!
         value: Float!
         note: String
+        isVacation: Boolean
+    }
+
+    type VacationPeriod {
+      id: ID!
+      startDate: String!
+      endDate: String!
+      note: String
     }
 
     type DashboardInsights {

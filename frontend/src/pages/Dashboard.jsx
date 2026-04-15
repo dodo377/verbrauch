@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from 'urql';
 import { GET_DASHBOARD_DATA } from '../graphql/queries.js';
-import { ADD_READING, UPDATE_READING_NOTE } from '../graphql/mutations.js';
+import { ADD_READING, UPDATE_READING_NOTE, ADD_VACATION_PERIOD, DELETE_VACATION_PERIOD } from '../graphql/mutations.js';
 import ConsumptionChart from '../components/ConsumptionChart.jsx';
 import {
   TYPES,
@@ -26,6 +26,9 @@ export default function Dashboard() {
   const [selectedRange, setSelectedRange] = useState('30d');
   const [selectedAnomaly, setSelectedAnomaly] = useState(null);
   const [anomalyNote, setAnomalyNote] = useState('');
+  const [vacationStartDate, setVacationStartDate] = useState('');
+  const [vacationEndDate, setVacationEndDate] = useState('');
+  const [vacationNote, setVacationNote] = useState('');
 
   const rangeVariables = useMemo(() => getRangeVariables(selectedRange), [selectedRange]);
 
@@ -37,10 +40,13 @@ export default function Dashboard() {
 
   const [addResult, addReading] = useMutation(ADD_READING);
   const [updateNoteResult, updateReadingNote] = useMutation(UPDATE_READING_NOTE);
+  const [addVacationResult, addVacationPeriod] = useMutation(ADD_VACATION_PERIOD);
+  const [deleteVacationResult, deleteVacationPeriod] = useMutation(DELETE_VACATION_PERIOD);
 
   const allReadings = data?.getReadings || [];
   const chartData = data?.getChartData || [];
   const wasteSummary = data?.getWasteSummary || [];
+  const vacationPeriods = data?.getVacationPeriods || [];
   const isElectricityType = activeType === 'household' || activeType === 'heatpump';
 
   const monthOptions = useMemo(() => {
@@ -107,6 +113,30 @@ export default function Dashboard() {
 
     setSelectedAnomaly(null);
     setAnomalyNote('');
+    reexecuteQuery({ requestPolicy: 'network-only' });
+  };
+
+  const handleAddVacationPeriod = async (e) => {
+    e.preventDefault();
+    if (!vacationStartDate || !vacationEndDate) return;
+
+    const result = await addVacationPeriod({
+      startDate: vacationStartDate,
+      endDate: vacationEndDate,
+      note: vacationNote.trim() || null,
+    });
+
+    if (result.error) return;
+
+    setVacationStartDate('');
+    setVacationEndDate('');
+    setVacationNote('');
+    reexecuteQuery({ requestPolicy: 'network-only' });
+  };
+
+  const handleDeleteVacationPeriod = async (id) => {
+    const result = await deleteVacationPeriod({ id });
+    if (result.error) return;
     reexecuteQuery({ requestPolicy: 'network-only' });
   };
 
@@ -298,6 +328,42 @@ export default function Dashboard() {
                 {addResult.fetching ? 'Speichert...' : activeType === 'waste' ? 'Als rausgestellt speichern' : 'Speichern'}
               </button>
             </form>
+
+            <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-semibold mb-3 text-blue-600">Urlaub eintragen</h3>
+              <form onSubmit={handleAddVacationPeriod} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input
+                    type="date"
+                    value={vacationStartDate}
+                    onChange={(e) => setVacationStartDate(e.target.value)}
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                  <input
+                    type="date"
+                    value={vacationEndDate}
+                    onChange={(e) => setVacationEndDate(e.target.value)}
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={vacationNote}
+                  onChange={(e) => setVacationNote(e.target.value)}
+                  className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Optionaler Hinweis (z. B. Osterurlaub)"
+                />
+                <button
+                  type="submit"
+                  disabled={addVacationResult.fetching}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+                >
+                  {addVacationResult.fetching ? 'Speichert...' : 'Urlaubszeitraum speichern'}
+                </button>
+              </form>
+            </div>
           </section>
 
           <section className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -308,26 +374,56 @@ export default function Dashboard() {
               {fetching && !data ? (
                 <p className="animate-pulse">Lade...</p>
               ) : (
-                allReadings.slice(0, 10).map((r) => (
-                  <div key={r.id} className="border-b border-gray-50 dark:border-gray-700 pb-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 text-sm">
-                        {new Date(Number(r.timestamp)).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
-                      </span>
-                      {activeType === 'waste' ? (
-                        <span className="font-bold flex items-center gap-2">
-                          <span aria-hidden="true">{getWasteSubtypeMeta(r.subtype).icon}</span>
-                          <span>{getWasteSubtypeMeta(r.subtype).label}</span>
+                <>
+                  {allReadings.slice(0, 10).map((r) => (
+                    <div key={r.id} className="border-b border-gray-50 dark:border-gray-700 pb-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 text-sm">
+                          {new Date(Number(r.timestamp)).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
                         </span>
-                      ) : (
-                        <span className="font-bold">{Number(r.value).toLocaleString('de-DE')}</span>
-                      )}
+                        {activeType === 'waste' ? (
+                          <span className="font-bold flex items-center gap-2">
+                            <span aria-hidden="true">{getWasteSubtypeMeta(r.subtype).icon}</span>
+                            <span>{getWasteSubtypeMeta(r.subtype).label}</span>
+                          </span>
+                        ) : (
+                          <span className="font-bold">{Number(r.value).toLocaleString('de-DE')}</span>
+                        )}
+                      </div>
+                      {r.note ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Bemerkung: {r.note}</p>
+                      ) : null}
                     </div>
-                    {r.note ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Bemerkung: {r.note}</p>
-                    ) : null}
+                  ))}
+
+                  <div className="pt-2">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Urlaubszeiträume</p>
+                    {vacationPeriods.length === 0 ? (
+                      <p className="text-xs text-gray-400">Noch keine Urlaubszeiträume hinterlegt.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {vacationPeriods.slice(0, 8).map((period) => (
+                          <div key={period.id} className="rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-2 bg-gray-50 dark:bg-gray-900/40">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium">
+                                {new Date(period.startDate).toLocaleDateString('de-DE')} – {new Date(period.endDate).toLocaleDateString('de-DE')}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteVacationPeriod(period.id)}
+                                disabled={deleteVacationResult.fetching}
+                                className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                              >
+                                Löschen
+                              </button>
+                            </div>
+                            {period.note ? <p className="text-xs text-gray-500 mt-1">{period.note}</p> : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))
+                </>
               )}
             </div>
           </section>

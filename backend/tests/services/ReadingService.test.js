@@ -80,9 +80,13 @@ describe('ReadingService', () => {
         endDate: String(now),
       });
 
-      expect(chartData).toHaveLength(2);
-      expect(chartData[0].value).toBe(10);
-      expect(chartData[1].value).toBe(15);
+      expect(chartData).toHaveLength(20);
+
+      const totalConsumption = chartData.reduce((sum, point) => sum + point.value, 0);
+      expect(Number(totalConsumption.toFixed(2))).toBe(20);
+
+      expect(chartData[0].value).toBe(0.5);
+      expect(chartData[chartData.length - 1].value).toBe(1.5);
     });
 
     it('sollte bei Temperatur Realwerte inkl. Notizen im Zeitraum zurückgeben', async () => {

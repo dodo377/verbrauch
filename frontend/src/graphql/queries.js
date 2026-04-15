@@ -49,6 +49,12 @@ export const GET_DASHBOARD_DATA = gql`
       count
       lastDate
     }
+    getVacationPeriods {
+      id
+      startDate
+      endDate
+      note
+    }
   }
 `;
 

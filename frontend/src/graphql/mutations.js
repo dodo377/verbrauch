@@ -32,3 +32,20 @@ export const UPDATE_READING_NOTE = gql`
     }
   }
 `;
+
+export const ADD_VACATION_PERIOD = gql`
+  mutation AddVacationPeriod($startDate: String!, $endDate: String!, $note: String) {
+    addVacationPeriod(startDate: $startDate, endDate: $endDate, note: $note) {
+      id
+      startDate
+      endDate
+      note
+    }
+  }
+`;
+
+export const DELETE_VACATION_PERIOD = gql`
+  mutation DeleteVacationPeriod($id: ID!) {
+    deleteVacationPeriod(id: $id)
+  }
+`;

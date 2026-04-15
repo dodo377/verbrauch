@@ -32,6 +32,10 @@ export const resolvers = {
       const user = requireAuth(context);
       return await ReadingService.getWasteSummary(user.id, { days, startDate, endDate });
     },
+    getVacationPeriods: async (_, __, context) => {
+      const user = requireAuth(context);
+      return await ReadingService.getVacationPeriods(user.id);
+    },
     getLatestReading: () => null,
   },
 
@@ -52,6 +56,14 @@ export const resolvers = {
       const user = requireAuth(context, 'Nicht autorisiert. Bitte logge dich zuerst ein.');
 
       return await ReadingService.updateReadingNote(user.id, id, note);
+    },
+    addVacationPeriod: async (_, { startDate, endDate, note }, context) => {
+      const user = requireAuth(context, 'Nicht autorisiert. Bitte logge dich zuerst ein.');
+      return await ReadingService.addVacationPeriod(user.id, { startDate, endDate, note });
+    },
+    deleteVacationPeriod: async (_, { id }, context) => {
+      const user = requireAuth(context, 'Nicht autorisiert. Bitte logge dich zuerst ein.');
+      return await ReadingService.deleteVacationPeriod(user.id, id);
     },
     register: async (_, args) => {
       return await AuthService.register({
