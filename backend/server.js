@@ -44,10 +44,24 @@ async function startServer() {
   );
 
   // 4. Express Server starten (auf allen Interfaces, damit Netzwerkzugriff moeglich ist)
-  app.listen(PORT, '0.0.0.0', () => {
+  const listener = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 GraphQL: http://localhost:${PORT}/graphql`);
     console.log(`🌐 Im Netz:  http://192.168.178.33:${PORT}/graphql`);
   });
+
+  listener.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${PORT} ist bereits belegt.`);
+      console.error('💡 Lösung: laufenden Prozess beenden und neu starten');
+      console.error(`   lsof -nP -iTCP:${PORT} -sTCP:LISTEN`);
+      console.error('   kill <PID>');
+      return;
+    }
+
+    console.error('❌ Server-Start fehlgeschlagen:', error);
+  });
 }
 
-startServer();
+startServer().catch((error) => {
+  console.error('❌ Unerwarteter Fehler beim Start:', error);
+});

@@ -298,6 +298,34 @@ Aus dem Ordner [frontend](frontend):
 
 Standardmäßig läuft das Frontend unter `http://localhost:5173/`.
 
+## Zugriff im Heimnetz
+
+Für den Zugriff von anderen Geräten im selben WLAN:
+
+1. Backend starten:
+
+```bash
+cd backend
+node server.js
+```
+
+2. Frontend starten:
+
+```bash
+cd ../frontend
+npm run dev
+```
+
+3. Auf dem anderen Gerät öffnen:
+
+- `http://<server-ip>:5173`
+
+Beispiel:
+
+- `http://192.168.178.33:5173`
+
+Hinweis: Ohne HTTPS ist die klassische „Installieren als App“-Funktion je nach Browser/Plattform eingeschränkt.
+
 ## Tests ausführen
 
 Backend-Tests aus dem Ordner [backend](backend):
