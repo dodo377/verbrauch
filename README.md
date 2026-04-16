@@ -22,6 +22,12 @@ npm run dev
 - Frontend: `http://localhost:5173`
 - Backend (GraphQL): `http://localhost:4000/graphql`
 
+## Doku-Aufteilung
+
+- Root: Gesamtarchitektur, Domänenlogik, Workflow
+- Frontend-Details: [frontend/README.md](frontend/README.md)
+- Backend-Details: [backend/README.md](backend/README.md)
+
 ## Ziel des Projekts
 
 Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem klaren Fokus auf:
@@ -79,6 +85,7 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 ```text
 verbrauch_new/
 ├── backend/
+│   ├── README.md            # Backend-spezifische Start-/Test-/API-Doku
 │   ├── server.js
 │   └── src/
 │       ├── context/          # JWT-Context (buildContext)
@@ -501,6 +508,7 @@ Verantwortlich für:
 - **Inline-Edit/Delete**: in der Liste „Letzte Einträge" können Ablesungen durch Klick auf „Bearbeiten" direkt editiert werden (Wert, Notiz, Subtype)
 - **Kachel-Layout Mitte**: Eintragen-/Einträge-Kachel sind auf gleiche Höhe ausgerichtet
 - **Urlaub-Formular**: wird erst nach Klick auf „Urlaub eintragen" sichtbar
+- **Urlaubszeiträume**: werden in der linken Kachel unter dem Urlaubsformular angezeigt
 - **Letzte Einträge**: auf die letzten 3 Einträge begrenzt
 - **Toast-Feedback**: Nach Speichern oder Löschen erscheint eine kurze Bestätigung / Fehlerbenachrichtigung unten rechts
 
