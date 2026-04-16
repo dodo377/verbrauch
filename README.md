@@ -235,6 +235,55 @@ Darauf ist die Service-Schicht vorbereitet und berücksichtigt beide Felder in d
 - Anzeige: einfache Auswertung nach Art und Anzahl
 - Dokumentation: letztes Datum der Rausstellung pro Tonnenart
 
+### AI-Insights und Anomalie-Erkennung
+
+Die Anomalie-Erkennung nutzt zwei komplementäre statistische Methoden zur Identifikation auffälliger Verbrauchswerte:
+
+#### IQR-Multiplikator (Interquartilsabstand)
+
+Basiert auf der Box-Plot-Methode und identifiziert Werte außerhalb der erwarteten Verteilung:
+
+```
+Anomalie = Wert < Q1 - (IQR × Multiplikator)  ODER  Wert > Q3 + (IQR × Multiplikator)
+```
+
+Wobei Q1 und Q3 das erste bzw. dritte Quartil sind und IQR = Q3 - Q1.
+
+**Praktisch:** 
+- **Multiplikator 1.5** (Standard): Erkennt klassische Ausreißer
+- **Höhere Werte** (z.B. 2.0): Weniger sensitive, nur extreme Ausreißer
+- **Niedrigere Werte** (z.B. 1.0): Strenger, mehr Anomalien erkannt
+
+#### Z-Score-Schwelle (Standardabweichung)
+
+Misst die Abweichung eines Wertes vom Durchschnitt in Einheiten der Standardabweichung:
+
+```
+Z-Score = |Wert - Durchschnitt| / Standardabweichung
+Anomalie = Z-Score ≥ Schwelle
+```
+
+**Praktisch:**
+- **Schwelle 2.3** (Strom-Standard): Etwa 2% der normalen Werte als Anomalie
+- **Schwelle 2.8** (Temperatur-Standard): Konservativer, weniger falsch-positive
+- **Höhere Schwellen** (z.B. 3.0): Weniger sensitive
+- **Niedrigere Schwellen** (z.B. 2.0): Strenger, mehr Anomalien erkannt
+
+#### Konfiguration im Dashboard
+
+Im AI-Insight-Bereich sind beide Schwellenwerte **live editierbar**:
+- Änderungen gelten sofort für die aktuelle Ansicht
+- Beide Methoden laufen parallel — ein Wert ist eine Anomalie, wenn er **entweder** die IQR-Grenze **oder** den Z-Score erreicht
+- Auffällige Punkte werden im Diagramm **rot markiert**
+- Für Strom-Daten: beide Methoden aktiv
+- Für Temperatur: nur Z-Score (da Temperatur keinen Verbrauchscharakter hat)
+
+#### Verwendete Algorithmen
+
+- **Rolling-Window Z-Score**: Nutzt ein gleitendes Zeitfenster (3–7 Tage) zur adaptiven Baseline-Berechnung
+- **IQR-Box-Plot**: Quartilbasierte Grenzwerte für robuste Ausreißer-Detektion
+- **Hybrid-Ansatz**: Ein Wert ist auffällig, wenn **mindestens eine** der beiden Methoden ihn als Anomalie einstuft
+
 ## Authentifizierung
 
 Die Authentifizierung verwendet JWT (JSON Web Tokens).
