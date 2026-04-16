@@ -2,6 +2,15 @@
 
 React + Vite Frontend für das Verbrauchs-Dashboard.
 
+## Features (UI)
+
+- Zeitraumfilter: 7 Tage, 30 Tage, Monat, Jahr
+- Statistik-Kacheln inkl. aktuellem Periodenwert
+- Letzte Einträge mit Einheiten (`kWh`, `m³`, `°C`)
+- Inline Edit/Delete für Einträge
+- Urlaubseintrag per einblendbarem Formular
+- Mobile-optimierte Filter-/Select-Anordnung
+
 ## Voraussetzungen
 
 - Node.js 18+
@@ -37,6 +46,12 @@ npm run preview
 
 ```bash
 npm run lint
+```
+
+## Build-Check
+
+```bash
+npm run build
 ```
 
 ## API-Anbindung

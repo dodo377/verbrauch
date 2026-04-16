@@ -538,6 +538,9 @@ export default function Dashboard() {
                 <p className="animate-pulse">Lade...</p>
               ) : (
                 <>
+                  {allReadings.length === 0 ? (
+                    <p className="text-sm text-gray-400">Noch keine Einträge vorhanden.</p>
+                  ) : null}
                   {allReadings.slice(0, 3).map((r) => (
                     <div key={r.id} className="border-b border-gray-50 dark:border-gray-700 pb-2">
                       {editingReadingId === r.id ? (
@@ -659,7 +662,7 @@ export default function Dashboard() {
                     key={range.id}
                     type="button"
                     onClick={() => setSelectedRange(range.id)}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex-1 sm:flex-none ${
                       selectedRange === range.id
                         ? 'bg-blue-600 text-white shadow'
                         : 'bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -670,12 +673,12 @@ export default function Dashboard() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Jahr:</span>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-sm text-gray-500 dark:text-gray-400 min-w-10">Jahr:</span>
                 <select
                   value={selectedRange.startsWith('year:') ? selectedRange : ''}
                   onChange={(e) => e.target.value && setSelectedRange(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+                  className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm flex-1 min-w-0 sm:min-w-[170px]"
                 >
                   <option value="">Jahr auswählen</option>
                   {yearOptions.map((option) => (
@@ -686,12 +689,12 @@ export default function Dashboard() {
                 </select>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Monat:</span>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-sm text-gray-500 dark:text-gray-400 min-w-10">Monat:</span>
                 <select
                   value={selectedRange.includes('-') ? selectedRange : ''}
                   onChange={(e) => e.target.value && setSelectedRange(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+                  className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm flex-1 min-w-0 sm:min-w-[170px]"
                 >
                   <option value="">Monat auswählen</option>
                   {monthOptions.map((option) => (
