@@ -1,4 +1,4 @@
-# Verbrauch New
+# Energie-Dashboard
 
 Energie-, Wasser-, Temperatur- und Müll-Dashboard mit Node.js/GraphQL-Backend, MongoDB und React/Tailwind-Frontend.
 
@@ -160,7 +160,7 @@ Das bedeutet konkret:
 
 ## TDD-Ansatz
 
-Der gewünschte Entwicklungsstil ist TDD-orientiert.
+Der Entwicklungsstil ist TDD-orientiert.
 
 Aktueller Stand:
 
@@ -292,10 +292,10 @@ mutation Login($username: String!, $password: String!) {
 
 ## GraphQL-Grundsätze
 
-- Enums werden als Enums verwendet, nicht als freie Strings
-- `ReadingType` muss in Queries und Mutations korrekt typisiert sein
-- Auth-Parameter heißen `password` (nicht `passwordHash`) in der öffentlichen API
-- Query-Verträge sollen UI-freundlich und explizit sein
+- Es werden Enum-Typen verwendet, keine freien Strings.
+- `ReadingType` wird in Queries und Mutations korrekt typisiert.
+- In der öffentlichen API heißt der Auth-Parameter `password` (nicht `passwordHash`).
+- Query-Verträge sind UI-freundlich und explizit formuliert.
 
 Beispiel:
 
@@ -437,6 +437,8 @@ Hinweis: Ohne HTTPS ist die klassische „Installieren als App“-Funktion je na
 Backend-Tests aus dem Ordner [backend](backend):
 
 - `npm test`
+
+Ausführlichere Test-Dokumentation (inkl. gezielter Testläufe und Troubleshooting) in [backend/README.md](backend/README.md#tests).
 
 Der aktuelle Fokus der Tests liegt auf der Service-Schicht und dem Auth-Context, insbesondere auf:
 
