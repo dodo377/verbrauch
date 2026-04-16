@@ -393,7 +393,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 text-gray-900 dark:text-gray-100">
       <header className="max-w-4xl mx-auto mb-8">
         <h1 className="text-3xl font-bold mb-6">Energie-Dashboard</h1>
-        <div className="flex flex-wrap gap-2 bg-gray-200 dark:bg-gray-800 p-1 rounded-xl w-fit">
+        <div className="flex flex-wrap gap-2 bg-gray-200 dark:bg-gray-800 p-1 rounded-xl w-full">
           {TYPES.map((t) => (
             <button
               key={t.id}
