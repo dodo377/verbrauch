@@ -21,12 +21,15 @@ export const resolvers = {
       const user = requireAuth(context);
       return await ReadingService.getChartData(user.id, type, { days, startDate, endDate });
     },
-    getDashboardInsights: async (_, { type, days, startDate, endDate }, context) => {
+    getDashboardInsights: async (_, { type, days, startDate, endDate, anomalyIqrMultiplier, anomalyZScoreThreshold }, context) => {
       const user = requireAuth(context);
 
       const range = { days, startDate, endDate };
       const chartData = await ReadingService.getChartData(user.id, type, range);
-      return DashboardInsightsService.build(type, chartData, range);
+      return DashboardInsightsService.build(type, chartData, range, {
+        anomalyIqrMultiplier,
+        anomalyZScoreThreshold,
+      });
     },
     getWasteSummary: async (_, { days, startDate, endDate }, context) => {
       const user = requireAuth(context);

@@ -4,9 +4,10 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, Cell 
 } from 'recharts';
 
-export default function ConsumptionChart({ type, data: chartData }) {
+export default function ConsumptionChart({ type, data: chartData, anomalyPointIds = [] }) {
   const isTemp = type === 'temperature';
   const mainColor = isTemp ? '#F59E0B' : '#3B82F6';
+  const anomalyColor = '#EF4444';
   const unit = isTemp ? '°C' : type === 'water' ? 'm³' : 'kWh';
   const seriesLabel = isTemp
     ? 'Temperatur'
@@ -55,6 +56,8 @@ export default function ConsumptionChart({ type, data: chartData }) {
     );
   };
 
+  const anomalyIdSet = new Set(anomalyPointIds.filter(Boolean));
+
   return (
     <div className="w-full h-full min-h-[16rem] overflow-hidden">
       <ResponsiveContainer width="100%" height="100%">
@@ -86,7 +89,12 @@ export default function ConsumptionChart({ type, data: chartData }) {
               dataKey="value"
               stroke={mainColor}
               strokeWidth={3}
-              dot={false}
+              dot={(props) => {
+                const { cx, cy, payload } = props;
+                if (!payload?.id || !anomalyIdSet.has(payload.id)) return null;
+
+                return <circle cx={cx} cy={cy} r={5} fill={anomalyColor} stroke="#ffffff" strokeWidth={2} />;
+              }}
               activeDot={{ r: 5, fill: mainColor }}
             />
           </LineChart>
@@ -116,8 +124,12 @@ export default function ConsumptionChart({ type, data: chartData }) {
               {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={entry.isVacation ? '#9CA3AF' : mainColor}
-                  fillOpacity={entry.isVacation ? 0.4 : 0.8}
+                  fill={entry.id && anomalyIdSet.has(entry.id)
+                    ? anomalyColor
+                    : entry.isVacation
+                      ? '#9CA3AF'
+                      : mainColor}
+                  fillOpacity={entry.id && anomalyIdSet.has(entry.id) ? 0.95 : entry.isVacation ? 0.4 : 0.8}
                 />
               ))}
             </Bar>

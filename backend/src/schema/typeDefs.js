@@ -44,7 +44,7 @@ export const typeDefs = gql`
     getReadings(type: ReadingType, limit: Int): [Reading!]!
     getLatestReading(type: ReadingType!): Reading
     getChartData(type: ReadingType!, days: Int, startDate: String, endDate: String): [ChartDataPoint!]!
-    getDashboardInsights(type: ReadingType!, days: Int, startDate: String, endDate: String): DashboardInsights!
+    getDashboardInsights(type: ReadingType!, days: Int, startDate: String, endDate: String, anomalyIqrMultiplier: Float, anomalyZScoreThreshold: Float): DashboardInsights!
     getWasteSummary(days: Int, startDate: String, endDate: String): [WasteSummaryItem!]!
     getVacationPeriods: [VacationPeriod!]!
   }
@@ -88,6 +88,7 @@ export const typeDefs = gql`
       anomalyCount: Int!
       anomalySeverity: String!
       anomalyMessage: String!
+      anomalyPointIds: [ID!]!
       anomalySamples: [AnomalyPoint!]!
       summary: String!
     }

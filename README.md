@@ -53,6 +53,8 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 - Statistik-Kacheln je Datentyp inkl. zusätzlichem "Heute"-Wert (Wasser: 7-Tage-Wert)
 - Diagramme mit `Recharts`
 - AI-Insights mit Trend- und Anomalie-Erkennung
+- konfigurierbare Schwellenwerte für Anomalie-Erkennung (IQR + Z-Score)
+- direkte Hervorhebung auffälliger Punkte im Diagramm
 - klickbare Strom-Auffälligkeiten mit Bemerkungsfunktion
 - Dokumentation von Müll-Rausstellungen nach Art und Häufigkeit
 - Urlaub im Frontend eintragen/löschen (Start/Ende + optionale Notiz, Formular per Klick einblendbar)
@@ -300,7 +302,7 @@ mutation Login($username: String!, $password: String!) {
 Beispiel:
 
 - `getChartData(type: ReadingType!, ...)`
-- `getDashboardInsights(type: ReadingType!, ...)`
+- `getDashboardInsights(type: ReadingType!, ..., anomalyIqrMultiplier, anomalyZScoreThreshold)`
 - `getWasteSummary(...)`
 - `getVacationPeriods()`
 - `addVacationPeriod(startDate, endDate, note)`
@@ -451,7 +453,7 @@ Der aktuelle Fokus der Tests liegt auf der Service-Schicht und dem Auth-Context,
 - Login-Lockout nach Fehlversuchen
 - Reset des Lockouts bei erfolgreichem Login
 
-Aktueller Teststatus: 4 Suites, 29 Tests, alle grün (+3 Tests für `updateReading` und `deleteReading`).
+Aktueller Teststatus: 4 Suites, 32 Tests, alle grün.
 
 ## Entwicklungsworkflow
 
@@ -513,11 +515,11 @@ Verantwortlich für:
 - **Urlaubszeiträume**: werden in der linken Kachel unter dem Urlaubsformular angezeigt
 - **Letzte Einträge**: auf die letzten 3 Einträge begrenzt
 - **Toast-Feedback**: Nach Speichern oder Löschen erscheint eine kurze Bestätigung / Fehlerbenachrichtigung unten rechts
+- **Anomalie-Schwellenwerte**: IQR-Multiplikator und Z-Score-Schwelle sind pro Ansicht direkt konfigurierbar
+- **Chart-Hervorhebung**: als auffällig erkannte Punkte werden im Diagramm rot markiert
 
 ## Nächste sinnvolle Ausbaustufen
 
-- konfigurierbare Schwellenwerte für Anomalie-Erkennung
-- Hervorhebung auffälliger Punkte direkt im Diagramm
 - Export / Reporting
 - dedizierte Waste-Planung mit nächstem Abholtermin
 - Login-Lockout auf Redis-Basis für Produktivbetrieb mit mehreren Instanzen

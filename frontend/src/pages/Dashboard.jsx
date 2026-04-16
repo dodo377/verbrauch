@@ -34,6 +34,8 @@ export default function Dashboard() {
   const [selectedRange, setSelectedRange] = useState('30d');
   const [selectedAnomaly, setSelectedAnomaly] = useState(null);
   const [anomalyNote, setAnomalyNote] = useState('');
+  const [anomalyIqrMultiplier, setAnomalyIqrMultiplier] = useState(1.5);
+  const [anomalyZScoreThreshold, setAnomalyZScoreThreshold] = useState(2.3);
   const [vacationStartDate, setVacationStartDate] = useState('');
   const [vacationEndDate, setVacationEndDate] = useState('');
   const [vacationNote, setVacationNote] = useState('');
@@ -44,9 +46,23 @@ export default function Dashboard() {
 
   const rangeVariables = useMemo(() => getRangeVariables(selectedRange), [selectedRange]);
 
+  const normalizedAnomalyThresholds = useMemo(() => {
+    const nextIqrMultiplier = Number(anomalyIqrMultiplier);
+    const nextZScoreThreshold = Number(anomalyZScoreThreshold);
+
+    return {
+      anomalyIqrMultiplier: Number.isFinite(nextIqrMultiplier) && nextIqrMultiplier > 0 ? nextIqrMultiplier : 1.5,
+      anomalyZScoreThreshold: Number.isFinite(nextZScoreThreshold) && nextZScoreThreshold > 0 ? nextZScoreThreshold : 2.3,
+    };
+  }, [anomalyIqrMultiplier, anomalyZScoreThreshold]);
+
   const [{ data, fetching, error }, reexecuteQuery] = useQuery({
     query: GET_DASHBOARD_DATA,
-    variables: { type: activeType, ...rangeVariables },
+    variables: {
+      type: activeType,
+      ...rangeVariables,
+      ...normalizedAnomalyThresholds,
+    },
     requestPolicy: 'network-only'
   });
 
@@ -62,6 +78,7 @@ export default function Dashboard() {
   const wasteSummary = data?.getWasteSummary || [];
   const vacationPeriods = data?.getVacationPeriods || [];
   const isElectricityType = activeType === 'household' || activeType === 'heatpump';
+  const anomalyPointIds = data?.getDashboardInsights?.anomalyPointIds || [];
 
   const monthOptions = useMemo(() => {
     const months = new Map();
@@ -317,6 +334,32 @@ export default function Dashboard() {
           ) : null}
         </div>
         <p className="text-sm text-indigo-800 dark:text-indigo-200">{insights.summary}</p>
+        {showAnomalies ? (
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="text-xs text-indigo-700 dark:text-indigo-300">
+              IQR-Multiplikator
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={anomalyIqrMultiplier}
+                onChange={(e) => setAnomalyIqrMultiplier(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </label>
+            <label className="text-xs text-indigo-700 dark:text-indigo-300">
+              Z-Score-Schwelle
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={anomalyZScoreThreshold}
+                onChange={(e) => setAnomalyZScoreThreshold(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </label>
+          </div>
+        ) : null}
         {showAnomalies ? <p className="text-sm text-indigo-800 dark:text-indigo-200 mt-1">{insights.anomalyMessage}</p> : null}
         {showAnomalies && anomalySamples.length > 0 ? (
           <div className="mt-3 pt-3 border-t border-indigo-200 dark:border-indigo-700">
@@ -734,7 +777,12 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="h-72 w-full overflow-hidden">
-              <ConsumptionChart key={`${activeType}-${selectedRange}`} type={activeType} data={chartData} />
+              <ConsumptionChart
+                key={`${activeType}-${selectedRange}`}
+                type={activeType}
+                data={chartData}
+                anomalyPointIds={anomalyPointIds}
+              />
             </div>
           )}
         </section>

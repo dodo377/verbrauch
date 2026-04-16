@@ -49,6 +49,7 @@ describe('DashboardInsightsService', () => {
       ], { days: 30 });
 
       expect(result.anomalyCount).toBeGreaterThan(0);
+      expect(result.anomalyPointIds).toEqual(expect.arrayContaining(['6']));
       expect(result.anomalySamples).toEqual(expect.arrayContaining([
         expect.objectContaining({
           id: '6',
@@ -111,7 +112,48 @@ describe('DashboardInsightsService', () => {
 
       expect(result.count).toBe(0);
       expect(result.severity).toBe('none');
+      expect(result.pointIds).toEqual([]);
       expect(result.samples).toEqual([]);
+    });
+
+    it('sollte konfigurierbare Z-Score-Schwellenwerte berücksichtigen', () => {
+      const points = [
+        { id: '1', date: '01.04.', value: 10 },
+        { id: '2', date: '02.04.', value: 10.2 },
+        { id: '3', date: '03.04.', value: 10.1 },
+        { id: '4', date: '04.04.', value: 10.3 },
+        { id: '5', date: '05.04.', value: 10.4 },
+        { id: '6', date: '06.04.', value: 14 },
+      ];
+
+      const strictResult = DashboardInsightsService.detectAnomalies(points, 'household', {
+        anomalyZScoreThreshold: 1.8,
+      });
+      const looseResult = DashboardInsightsService.detectAnomalies(points, 'household', {
+        anomalyZScoreThreshold: 10,
+      });
+
+      expect(strictResult.count).toBeGreaterThan(looseResult.count);
+    });
+  });
+
+  describe('resolveAnomalyThresholds()', () => {
+    it('sollte valide Konfigurationen übernehmen', () => {
+      const result = DashboardInsightsService.resolveAnomalyThresholds('household', {
+        anomalyIqrMultiplier: 2.1,
+        anomalyZScoreThreshold: 3,
+      });
+
+      expect(result).toEqual({ iqrMultiplier: 2.1, zScoreThreshold: 3 });
+    });
+
+    it('sollte bei ungültigen Werten auf Defaults zurückfallen', () => {
+      const result = DashboardInsightsService.resolveAnomalyThresholds('temperature', {
+        anomalyIqrMultiplier: -1,
+        anomalyZScoreThreshold: 0,
+      });
+
+      expect(result).toEqual({ iqrMultiplier: 1.5, zScoreThreshold: 2.8 });
     });
   });
 });

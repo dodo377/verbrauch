@@ -1,5 +1,5 @@
 export class DashboardInsightsService {
-  static build(type, chartData = [], range = {}) {
+  static build(type, chartData = [], range = {}, thresholds = {}) {
     const points = chartData
       .map((item) => ({
         id: item.id || null,
@@ -25,7 +25,7 @@ export class DashboardInsightsService {
         : (periodDays > 0 ? total / periodDays : 0);
 
     const trend = this.calculateTrend(safeValues);
-    const anomaly = this.detectAnomalies(points, type);
+    const anomaly = this.detectAnomalies(points, type, thresholds);
 
     return {
       average: Number(metricValue.toFixed(2)),
@@ -36,6 +36,7 @@ export class DashboardInsightsService {
       anomalyCount: anomaly.count,
       anomalySeverity: anomaly.severity,
       anomalyMessage: anomaly.message,
+      anomalyPointIds: anomaly.pointIds,
       anomalySamples: anomaly.samples,
       summary: this.buildSummary(type, trend, metricValue, min, max),
     };
@@ -80,16 +81,18 @@ export class DashboardInsightsService {
     return `Ø ${metricValue.toFixed(2)} ${unit}, Trend: ${this.translateTrend(trend)}.`;
   }
 
-  static detectAnomalies(points, type) {
+  static detectAnomalies(points, type, thresholds = {}) {
     if (points.length < 4) {
       return {
         count: 0,
         severity: 'none',
         message: 'Zu wenige Datenpunkte für eine belastbare Anomalie-Erkennung.',
+        pointIds: [],
         samples: [],
       };
     }
 
+    const { iqrMultiplier, zScoreThreshold } = this.resolveAnomalyThresholds(type, thresholds);
     const values = points.map((point) => point.value);
 
     const sorted = [...values].sort((a, b) => a - b);
@@ -97,8 +100,8 @@ export class DashboardInsightsService {
     const q3 = this.percentile(sorted, 0.75);
     const iqr = q3 - q1;
 
-    const lowerFence = q1 - 1.5 * iqr;
-    const upperFence = q3 + 1.5 * iqr;
+    const lowerFence = q1 - iqrMultiplier * iqr;
+    const upperFence = q3 + iqrMultiplier * iqr;
 
     const windowSize = Math.min(7, Math.max(3, Math.floor(values.length / 3)));
     const rollingAnomalies = values.map((value, index) => {
@@ -111,9 +114,8 @@ export class DashboardInsightsService {
 
       if (!Number.isFinite(stdDev) || stdDev === 0) return false;
 
-      const zThreshold = type === 'temperature' ? 2.8 : 2.3;
       const zScore = Math.abs((value - baseline) / stdDev);
-      return zScore >= zThreshold;
+      return zScore >= zScoreThreshold;
     });
 
     const iqrAnomalies = values.map((value) => value < lowerFence || value > upperFence);
@@ -131,6 +133,7 @@ export class DashboardInsightsService {
         count: 0,
         severity: 'none',
         message: 'Keine auffälligen Ausreißer erkannt.',
+        pointIds: [],
         samples: [],
       };
     }
@@ -147,12 +150,34 @@ export class DashboardInsightsService {
         note: points[index]?.note || '',
       }));
 
+    const anomalyPointIds = anomalyIndices
+      .map((index) => points[index]?.id)
+      .filter((id) => Boolean(id));
+
     return {
       count,
       severity,
       message: `${count} auffällige ${typeLabel} im Zeitraum erkannt.`,
+      pointIds: anomalyPointIds,
       samples: anomalySamples,
     };
+  }
+
+  static resolveAnomalyThresholds(type, thresholds = {}) {
+    const defaultZScoreThreshold = type === 'temperature' ? 2.8 : 2.3;
+
+    const parsedIqrMultiplier = Number(thresholds.anomalyIqrMultiplier);
+    const parsedZScoreThreshold = Number(thresholds.anomalyZScoreThreshold);
+
+    const iqrMultiplier = Number.isFinite(parsedIqrMultiplier) && parsedIqrMultiplier > 0
+      ? parsedIqrMultiplier
+      : 1.5;
+
+    const zScoreThreshold = Number.isFinite(parsedZScoreThreshold) && parsedZScoreThreshold > 0
+      ? parsedZScoreThreshold
+      : defaultZScoreThreshold;
+
+    return { iqrMultiplier, zScoreThreshold };
   }
 
   static percentile(sortedValues, p) {

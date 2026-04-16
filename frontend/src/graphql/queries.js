@@ -12,7 +12,7 @@ export const GET_READINGS = gql`
 `;
 
 export const GET_DASHBOARD_DATA = gql`
-  query GetDashboardData($type: ReadingType!, $days: Int, $startDate: String, $endDate: String) {
+  query GetDashboardData($type: ReadingType!, $days: Int, $startDate: String, $endDate: String, $anomalyIqrMultiplier: Float, $anomalyZScoreThreshold: Float) {
     getReadings(type: $type, limit: 500) {
       id
       type
@@ -27,7 +27,7 @@ export const GET_DASHBOARD_DATA = gql`
       value
       note
     }
-    getDashboardInsights(type: $type, days: $days, startDate: $startDate, endDate: $endDate) {
+    getDashboardInsights(type: $type, days: $days, startDate: $startDate, endDate: $endDate, anomalyIqrMultiplier: $anomalyIqrMultiplier, anomalyZScoreThreshold: $anomalyZScoreThreshold) {
       average
       total
       min
@@ -36,6 +36,7 @@ export const GET_DASHBOARD_DATA = gql`
       anomalyCount
       anomalySeverity
       anomalyMessage
+      anomalyPointIds
       anomalySamples {
         id
         date
