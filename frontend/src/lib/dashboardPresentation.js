@@ -19,6 +19,11 @@ export const RANGE_PRESETS = [
   { id: '30d', label: 'Letzte 30 Tage' },
 ];
 
+const TODAY_FORMATTER = new Intl.DateTimeFormat('de-DE', {
+  day: '2-digit',
+  month: '2-digit',
+});
+
 const WASTE_SUBTYPE_MAP = WASTE_SUBTYPES.reduce((acc, item) => {
   acc[item.id] = item;
   return acc;
@@ -104,7 +109,7 @@ export function getWasteSubtypeMeta(subtype) {
   };
 }
 
-export function getStatsViewModel(activeType, insights, wasteSummary, selectedRangeText) {
+export function getStatsViewModel(activeType, insights, wasteSummary, selectedRangeText, chartData = []) {
   if (activeType === 'waste') {
     const total = wasteSummary.reduce((sum, item) => sum + Number(item.count || 0), 0);
     const mostFrequent = wasteSummary[0];
@@ -125,6 +130,20 @@ export function getStatsViewModel(activeType, insights, wasteSummary, selectedRa
 
   if (!insights) return null;
 
+  const todayKey = TODAY_FORMATTER.format(new Date());
+  const todaysPoints = chartData.filter((point) => point?.date === todayKey);
+  const latestTodayPoint = todaysPoints.length > 0 ? todaysPoints[todaysPoints.length - 1] : null;
+  const todayValue = latestTodayPoint && Number.isFinite(Number(latestTodayPoint.value))
+    ? Number(latestTodayPoint.value).toFixed(2)
+    : '–';
+
+  const weeklyWindow = chartData
+    .filter((point) => Number.isFinite(Number(point?.value)))
+    .slice(-7);
+  const weeklyValue = weeklyWindow.length > 0
+    ? weeklyWindow.reduce((sum, point) => sum + Number(point.value), 0).toFixed(2)
+    : '–';
+
   if (activeType === 'temperature') {
     return {
       primary: {
@@ -136,6 +155,11 @@ export function getStatsViewModel(activeType, insights, wasteSummary, selectedRa
         label: 'Min / Max',
         value: `${Number(insights.min || 0).toFixed(1)}°C / ${Number(insights.max || 0).toFixed(1)}°C`,
         unit: null,
+      },
+      tertiary: {
+        label: 'Heute',
+        value: todayValue,
+        unit: '°C',
       },
     };
   }
@@ -151,6 +175,11 @@ export function getStatsViewModel(activeType, insights, wasteSummary, selectedRa
     secondary: {
       label: 'Gesamtverbrauch im Zeitraum',
       value: Number(insights.total || 0).toFixed(2),
+      unit: isWater ? 'm³' : 'kWh',
+    },
+    tertiary: {
+      label: isWater ? 'Verbrauch (7 Tage)' : 'Verbrauch heute',
+      value: isWater ? weeklyValue : todayValue,
       unit: isWater ? 'm³' : 'kWh',
     },
   };

@@ -37,6 +37,7 @@ export default function Dashboard() {
   const [vacationStartDate, setVacationStartDate] = useState('');
   const [vacationEndDate, setVacationEndDate] = useState('');
   const [vacationNote, setVacationNote] = useState('');
+  const [showVacationForm, setShowVacationForm] = useState(false);
   const [editingReadingId, setEditingReadingId] = useState(null);
   const [editingForm, setEditingForm] = useState({ value: '', note: '', subtype: WASTE_SUBTYPES[0].id });
   const [toast, setToast] = useState({ message: '', type: 'success' });
@@ -176,6 +177,7 @@ export default function Dashboard() {
     setVacationStartDate('');
     setVacationEndDate('');
     setVacationNote('');
+    setShowVacationForm(false);
     reexecuteQuery({ requestPolicy: 'network-only' });
   };
 
@@ -254,25 +256,35 @@ export default function Dashboard() {
 
   const renderStats = () => {
     const insights = data?.getDashboardInsights;
-    const stats = getStatsViewModel(activeType, insights, wasteSummary, selectedRangeText);
+    const stats = getStatsViewModel(activeType, insights, wasteSummary, selectedRangeText, chartData);
     if (!stats) return null;
 
+    const statCards = [stats.primary, stats.secondary, stats.tertiary].filter(Boolean);
+    const gridClass = statCards.length >= 3
+      ? 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'
+      : 'grid grid-cols-1 md:grid-cols-2 gap-4 mb-6';
+
+    const cardStyles = [
+      'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-blue-700 dark:text-blue-300',
+      'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-500 text-gray-700 dark:text-gray-300',
+      'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-emerald-700 dark:text-emerald-300',
+    ];
+
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800">
-          <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{stats.primary.label}</p>
-          <p className="text-3xl font-black text-blue-700 dark:text-blue-300">
-            {stats.primary.value}
-            {stats.primary.unit ? <span className="text-lg ml-1 font-normal">{stats.primary.unit}</span> : null}
-          </p>
-        </div>
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{stats.secondary.label}</p>
-          <p className="text-3xl font-black text-gray-700 dark:text-gray-300">
-            {stats.secondary.value}
-            {stats.secondary.unit ? <span className="text-lg ml-1 font-normal">{stats.secondary.unit}</span> : null}
-          </p>
-        </div>
+      <div className={gridClass}>
+        {statCards.map((card, index) => {
+          const [backgroundClass, borderClass, labelClass, valueClass] = cardStyles[index] || cardStyles[1];
+
+          return (
+            <div key={card.label} className={`${backgroundClass} p-4 rounded-2xl border ${borderClass}`}>
+              <p className={`text-xs font-bold uppercase tracking-wider ${labelClass}`}>{card.label}</p>
+              <p className={`text-3xl font-black ${valueClass}`}>
+                {card.value}
+                {card.unit ? <span className="text-lg ml-1 font-normal">{card.unit}</span> : null}
+              </p>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -400,8 +412,8 @@ export default function Dashboard() {
         {renderStats()}
         {renderInsight()}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <section className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:items-stretch">
+          <section className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col">
             <h2 className="text-xl font-semibold mb-4 text-blue-600">Eintragen</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               {activeType === 'waste' ? (
@@ -435,52 +447,70 @@ export default function Dashboard() {
             </form>
 
             <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-semibold mb-3 text-blue-600">Urlaub eintragen</h3>
-              <form onSubmit={handleAddVacationPeriod} className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowVacationForm((prev) => !prev)}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all"
+              >
+                {showVacationForm ? 'Urlaub eintragen schließen' : 'Urlaub eintragen'}
+              </button>
+
+              {showVacationForm ? (
+                <form onSubmit={handleAddVacationPeriod} className="space-y-3 mt-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      type="date"
+                      value={vacationStartDate}
+                      onChange={(e) => setVacationStartDate(e.target.value)}
+                      className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    <input
+                      type="date"
+                      value={vacationEndDate}
+                      onChange={(e) => setVacationEndDate(e.target.value)}
+                      className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
                   <input
-                    type="date"
-                    value={vacationStartDate}
-                    onChange={(e) => setVacationStartDate(e.target.value)}
+                    type="text"
+                    value={vacationNote}
+                    onChange={(e) => setVacationNote(e.target.value)}
                     className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    placeholder="Optionaler Hinweis (z. B. Osterurlaub)"
                   />
-                  <input
-                    type="date"
-                    value={vacationEndDate}
-                    onChange={(e) => setVacationEndDate(e.target.value)}
-                    className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={vacationNote}
-                  onChange={(e) => setVacationNote(e.target.value)}
-                  className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Optionaler Hinweis (z. B. Osterurlaub)"
-                />
-                <button
-                  type="submit"
-                  disabled={addVacationResult.fetching}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
-                >
-                  {addVacationResult.fetching ? 'Speichert...' : 'Urlaubszeitraum speichern'}
-                </button>
-              </form>
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={addVacationResult.fetching}
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
+                    >
+                      {addVacationResult.fetching ? 'Speichert...' : 'Urlaubszeitraum speichern'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowVacationForm(false)}
+                      className="px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+                </form>
+              ) : null}
             </div>
           </section>
 
-          <section className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <section className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden h-full flex flex-col">
             <h2 className="text-xl font-semibold mb-4">
               {getEntrySectionTitle(activeType)}
             </h2>
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+            <div className="space-y-3 flex-1 overflow-y-auto pr-2">
               {fetching && !data ? (
                 <p className="animate-pulse">Lade...</p>
               ) : (
                 <>
-                  {allReadings.slice(0, 10).map((r) => (
+                  {allReadings.slice(0, 3).map((r) => (
                     <div key={r.id} className="border-b border-gray-50 dark:border-gray-700 pb-2">
                       {editingReadingId === r.id ? (
                         <div className="space-y-2">

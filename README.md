@@ -43,13 +43,13 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 
 ### Dashboard-Features
 
-- Zeitraumfilter für letzte 7 Tage, letzte 30 Tage und Monatsansichten
-- Statistik-Kacheln je Datentyp
+- Zeitraumfilter für letzte 7 Tage, letzte 30 Tage, Monatsansichten und Jahresauswertung
+- Statistik-Kacheln je Datentyp inkl. zusätzlichem "Heute"-Wert (Wasser: 7-Tage-Wert)
 - Diagramme mit `Recharts`
 - AI-Insights mit Trend- und Anomalie-Erkennung
 - klickbare Strom-Auffälligkeiten mit Bemerkungsfunktion
 - Dokumentation von Müll-Rausstellungen nach Art und Häufigkeit
-- Urlaub im Frontend eintragen/löschen (Start/Ende + optionale Notiz)
+- Urlaub im Frontend eintragen/löschen (Start/Ende + optionale Notiz, Formular per Klick einblendbar)
 
 ## Tech Stack
 
@@ -497,7 +497,11 @@ Verantwortlich für:
 - `Dashboard` orchestriert Auswahl, Abfragen und Darstellung
 - Auffällige Stromwerte sind klickbar und können mit Bemerkungen versehen werden
 - Urlaubstage können direkt im Dashboard gepflegt werden und werden im Chart berücksichtigt
+- **Einheitenanzeige**: letzte Zählerstände zeigen den Wert inkl. Einheit (`kWh`, `m³`, `°C`)
 - **Inline-Edit/Delete**: in der Liste „Letzte Einträge" können Ablesungen durch Klick auf „Bearbeiten" direkt editiert werden (Wert, Notiz, Subtype)
+- **Kachel-Layout Mitte**: Eintragen-/Einträge-Kachel sind auf gleiche Höhe ausgerichtet
+- **Urlaub-Formular**: wird erst nach Klick auf „Urlaub eintragen" sichtbar
+- **Letzte Einträge**: auf die letzten 3 Einträge begrenzt
 - **Toast-Feedback**: Nach Speichern oder Löschen erscheint eine kurze Bestätigung / Fehlerbenachrichtigung unten rechts
 
 ## Nächste sinnvolle Ausbaustufen
