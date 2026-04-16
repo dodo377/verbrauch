@@ -168,7 +168,7 @@ export function getStatsViewModel(activeType, insights, wasteSummary, selectedRa
 
   return {
     primary: {
-      label: `${isWater ? 'Durchschnittlicher Wochenverbrauch' : 'Durchschnittlicher Tagesverbrauch'} (${selectedRangeText})`,
+      label: `${isWater ? 'Ø Wochenverbrauch' : 'Ø Tagesverbrauch'} (${selectedRangeText})`,
       value: Number(insights.average || 0).toFixed(2),
       unit: isWater ? 'm³' : 'kWh',
     },
