@@ -584,7 +584,7 @@ Hinweis: Das Frontend nutzt `/graphql` und leitet über den Vite-Proxy automatis
 
 ### Lokale Entwicklung
 
-./deploy.shr den Zugriff von anderen Gerten im selben WLAN:
+Für den Zugriff von anderen Geräten im selben WLAN:
 
 1. Backend starten:
 
@@ -600,23 +600,24 @@ cd ../frontend
 npm run dev
 ```
 
-3. Auf dem anderen Gert fffffffnen:
+3. Auf dem anderen Gerät öffnen:
 
 - `http://<server-ip>:5173`
 
 ### Docker
 
-Mit Docker Compose luft das Frontend auf dem in `.env` konfigurierten `FRONTEND_HOST_PORT` (Standard: `8080`):
+Mit Docker Compose läuft das Frontend auf dem in `.env` konfigurierten `FRONTEND_HOST_PORT` (Standard: `8080`):
 
 ```bash
 docker compose up -d --build
 ```
 
-Auf dem anderen Gert fffffffnen:
+Auf dem anderen Gerät öffnen:
 
 - `http://<server-ip>:8080`
 
-Hinweis: Ohne HTTPS ist die klassische „Installieren als App“-Funktion je nach Browser/Plattform eingeschrnkt.
+Hinweis: Ohne HTTPS ist die klassische „Installieren als App“-Funktion je nach Browser/Plattform eingeschränkt.
+
 ## Tests ausführen
 
 Backend-Tests aus dem Ordner [backend](backend):
