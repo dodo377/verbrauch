@@ -1,0 +1,55 @@
+services:
+  vtracker-backend:
+    build:
+      context: ./backend
+    container_name: vtracker-backend
+    restart: always
+    environment:
+      MONGO_URI: ${MONGO_URI:-mongodb://vtracker-db:27017/verbrauch}
+      JWT_SECRET: ${JWT_SECRET:-etwABJiSvhV1sPQN9qPKJyj65CNhqJd0/y2/1kIoJva+XNCoUcE8HhjWeFtn4H+O}
+      PORT: 4000
+      MAX_FAILED_LOGIN_ATTEMPTS: ${MAX_FAILED_LOGIN_ATTEMPTS:-5}
+      LOGIN_LOCK_MINUTES: ${LOGIN_LOCK_MINUTES:-15}
+    ports:
+      - "${BACKEND_HOST_PORT:-4001}:4000"
+    networks:
+      - vtracker-network
+
+  vtracker-frontend:
+    build:
+      context: ./frontend
+    container_name: vtracker-frontend
+    restart: always
+    depends_on:
+      - vtracker-backend
+    environment:
+      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-vtracker-backend:4000}
+    ports:
+      - "${FRONTEND_HOST_PORT:-8080}:5173"
+    networks:
+      - vtracker-network
+
+  vtracker-db:
+    image: mongo:7
+    container_name: vtracker-db
+    restart: always
+    profiles: ["with-db"]
+    command: ["--bind_ip_all"]
+    volumes:
+      - vtracker_db_data:/data/db
+    networks:
+      - vtracker-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  vtracker_db_data:
+    name: vtracker_db_data
+
+networks:
+  vtracker-network:
+    name: ${VTRACKER_NETWORK_NAME:-vtracker-network}
+    external: ${VTRACKER_NETWORK_EXTERNAL:-false}

@@ -10,6 +10,7 @@ import { buildContext } from './src/context/buildContext.js';
 
 // PORT festlegen
 const PORT = process.env.PORT || 4000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/verbrauch_dev';
 
 // Express App initialisieren
 const app = express();
@@ -24,7 +25,7 @@ async function startServer() {
   // 1. Mit einer lokalen (oder später MongoDB Atlas) Datenbank verbinden
   // Für die Entwicklung nutzen wir hier eine lokale DB namens "verbrauch_dev"
   try {
-    await mongoose.connect('mongodb://127.0.0.1:27017/verbrauch_dev');
+    await mongoose.connect(MONGO_URI);
     console.log('✅ Mit MongoDB verbunden');
   } catch (error) {
     console.error('❌ MongoDB Verbindungsfehler:', error);

@@ -22,6 +22,128 @@ npm run dev
 - Frontend: `http://localhost:5173`
 - Backend (GraphQL): `http://localhost:4000/graphql`
 
+## Docker Deployment
+
+Das Projekt ist vollständig containerisiert.
+
+Relevante Dateien:
+
+- `docker-compose.yml`
+- `.env.docker.example`
+- `backend/Dockerfile`
+- `frontend/Dockerfile`
+
+### 1. Umgebung vorbereiten
+
+```bash
+cp .env.docker.example .env
+```
+
+In `.env` bitte nur Platzhalter durch eigene Werte ersetzen:
+
+- `JWT_SECRET=<EIGENES_STARKES_SECRET>`
+- `BACKEND_HOST_PORT=<FREIER_PORT_ODER_4000>`
+- `FRONTEND_HOST_PORT=<FREIER_PORT_ODER_8080>`
+
+Aktueller Stand in dieser Umgebung:
+
+- `BACKEND_HOST_PORT=4001`
+- `FRONTEND_HOST_PORT=8080`
+
+### 2. Startvarianten
+
+Bestehende MongoDB weiterverwenden:
+
+```bash
+# Beispiel: MongoDB auf dem Host
+# MONGO_URI=mongodb://host.docker.internal:27018/verbrauch
+docker compose up -d --build
+```
+
+Neue MongoDB im Compose starten (mit Persistenz-Volume):
+
+```bash
+docker compose --profile with-db up -d --build
+```
+
+### 3. Persistenz
+
+MongoDB-Daten werden im benannten Volume `vtracker_db_data` gespeichert und bleiben bei Container-Neustarts/Updates erhalten.
+
+### 4. Netzwerk-Integration
+
+Falls ein bestehendes Docker-Netzwerk (z. B. Reverse Proxy) genutzt werden soll:
+
+- `VTRACKER_NETWORK_EXTERNAL=true`
+- `VTRACKER_NETWORK_NAME=<BESTEHENDES_NETZWERK>`
+
+### Troubleshooting (Docker)
+
+#### Port bereits belegt
+
+Symptom: `bind: address already in use`
+
+Prüfen:
+
+```bash
+lsof -nP -iTCP:<PORT> -sTCP:LISTEN
+```
+
+Lösung:
+
+- In `.env` andere Host-Ports setzen, z. B. `BACKEND_HOST_PORT=4001` oder `FRONTEND_HOST_PORT=8080`
+- Oder den blockierenden Prozess stoppen und danach neu starten
+
+#### Container ist `unhealthy`
+
+Symptom: Service startet, ist aber nicht erreichbar oder Healthcheck schlägt fehl.
+
+Prüfen:
+
+```bash
+docker compose ps
+docker compose logs --tail=200 vtracker-backend
+docker compose logs --tail=200 vtracker-db
+```
+
+Häufige Ursachen:
+
+- ungültige `MONGO_URI`
+- Backend startet vor erreichbarer DB
+- falscher `BACKEND_UPSTREAM` im Frontend
+
+#### Backend erreicht MongoDB nicht
+
+Symptom: Im Backend-Log erscheinen Verbindungsfehler zur Datenbank.
+
+Prüfen:
+
+```bash
+docker compose exec vtracker-backend env | grep MONGO_URI
+```
+
+Typische Varianten:
+
+- Compose-DB: `MONGO_URI=mongodb://vtracker-db:27017/verbrauch`
+- Host-DB: `MONGO_URI=mongodb://host.docker.internal:<MONGO_PORT>/verbrauch`
+
+#### Änderungen an `.env` werden nicht übernommen
+
+Symptom: Trotz Anpassung gelten alte Werte weiter.
+
+Lösung:
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+Bei Datenbank-Reset (Achtung: löscht DB-Daten im Volume):
+
+```bash
+docker compose down -v
+```
+
 ## Doku-Aufteilung
 
 - Root: Gesamtarchitektur, Domänenlogik, Workflow
@@ -52,8 +174,10 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 - Zeitraumfilter für letzte 7 Tage, letzte 30 Tage, Monatsansichten und Jahresauswertung
 - Statistik-Kacheln je Datentyp inkl. zusätzlichem "Heute"-Wert (Wasser: 7-Tage-Wert)
 - Diagramme mit `Recharts`
-- AI-Insights mit Trend- und Anomalie-Erkennung
-- konfigurierbare Schwellenwerte für Anomalie-Erkennung (IQR + Z-Score)
+- eigene Seite **AI Insights** als zusätzlicher Menüpunkt in der ersten Zeile (nach „Müll“)
+- AI-Insights mit Trend- und Anomalie-Erkennung pro Datentyp
+- konfigurierbare Schwellenwerte für Anomalie-Erkennung (IQR + Z-Score) auf der AI-Insights-Seite
+- Badge am oberen **AI Insights**-Button, wenn Auffälligkeiten vorliegen
 - direkte Hervorhebung auffälliger Punkte im Diagramm
 - klickbare Strom-Auffälligkeiten mit Bemerkungsfunktion
 - Dokumentation von Müll-Rausstellungen nach Art und Häufigkeit
@@ -269,10 +393,11 @@ Anomalie = Z-Score ≥ Schwelle
 - **Höhere Schwellen** (z.B. 3.0): Weniger sensitive
 - **Niedrigere Schwellen** (z.B. 2.0): Strenger, mehr Anomalien erkannt
 
-#### Konfiguration im Dashboard
+#### Konfiguration auf der AI-Insights-Seite
 
-Im AI-Insight-Bereich sind beide Schwellenwerte **live editierbar**:
+Auf der separaten Seite „AI Insights“ sind beide Schwellenwerte **live editierbar**:
 - Änderungen gelten sofort für die aktuelle Ansicht
+- Die Seite enthält Typ-Tabs (Haushaltsstrom, Wärmepumpe, Wasser, Temperatur)
 - Beide Methoden laufen parallel — ein Wert ist eine Anomalie, wenn er **entweder** die IQR-Grenze **oder** den Z-Score erreicht
 - Auffällige Punkte werden im Diagramm **rot markiert**
 - Für Strom-Daten: beide Methoden aktiv
@@ -477,10 +602,6 @@ npm run dev
 
 - `http://<server-ip>:5173`
 
-Beispiel:
-
-- `http://192.168.178.33:5173`
-
 Hinweis: Ohne HTTPS ist die klassische „Installieren als App“-Funktion je nach Browser/Plattform eingeschränkt.
 
 ## Tests ausführen
@@ -555,6 +676,8 @@ Verantwortlich für:
 
 - `ConsumptionChart` visualisiert Daten, berechnet sie aber nicht fachlich neu
 - `Dashboard` orchestriert Auswahl, Abfragen und Darstellung
+- **AI-Insights-Seite**: eigener Menüpunkt in der ersten Zeile nach „Müll“, inklusive Typ-Tabs für Insight-Ansichten
+- **Badge oben**: in der ersten Zeile zeigt nur der Button „AI Insights" ein Badge bei Auffälligkeiten
 - Auffällige Stromwerte sind klickbar und können mit Bemerkungen versehen werden
 - Urlaubstage können direkt im Dashboard gepflegt werden und werden im Chart berücksichtigt
 - **Einheitenanzeige**: letzte Zählerstände zeigen den Wert inkl. Einheit (`kWh`, `m³`, `°C`)

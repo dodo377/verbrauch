@@ -3,7 +3,8 @@ export const TYPES = [
   { id: 'heatpump', label: 'Wärmepumpe', icon: '🌡️' },
   { id: 'water', label: 'Wasser', icon: '💧' },
   { id: 'temperature', label: 'Außentemperatur', icon: '❄️' },
-  { id: 'waste', label: 'Müll', icon: '🗑️' }
+  { id: 'waste', label: 'Müll', icon: '🗑️' },
+  { id: 'ai-insights', label: 'AI Insights', icon: '🧠' }
 ];
 
 export const WASTE_SUBTYPES = [

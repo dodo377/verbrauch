@@ -22,9 +22,15 @@ cp .env.example .env
 Wichtige Variablen:
 
 - `JWT_SECRET` (Pflicht)
+- `MONGO_URI` (Pflicht für Docker/Remote-DB)
 - `PORT` (Standard: `4000`)
 - `MAX_FAILED_LOGIN_ATTEMPTS` (Standard: `5`)
 - `LOGIN_LOCK_MINUTES` (Standard: `15`)
+
+Hinweis zu sensiblen Daten:
+
+- Keine echten Secrets in README, Dockerfile oder Repository hinterlegen.
+- Für Doku und Beispiele nur Platzhalter verwenden.
 
 ## Start
 
@@ -36,6 +42,21 @@ GraphQL Endpoint:
 
 - `http://localhost:4000/graphql`
 
+## Docker
+
+Das Backend kann direkt als Container gestartet werden.
+
+Datei:
+
+- `Dockerfile`
+
+Beispiel (Compose nutzt diese Variablen):
+
+- `MONGO_URI=mongodb://vtracker-db:27017/verbrauch` (interne Compose-DB)
+- `MONGO_URI=mongodb://host.docker.internal:27018/verbrauch` (bestehende Host-DB)
+
+Die bestehende Logik im `ReadingService` für `user_id` und `userId` bleibt durch den Docker-Betrieb unverändert.
+
 ## Tests
 
 ```bash
@@ -45,7 +66,7 @@ npm test
 Aktueller Stand:
 
 - 4 Test-Suites
-- 29 Tests
+- 32 Tests
 
 ### Testumfang
 

@@ -36,6 +36,7 @@ export default function Dashboard() {
   const [anomalyNote, setAnomalyNote] = useState('');
   const [anomalyIqrMultiplier, setAnomalyIqrMultiplier] = useState(1.5);
   const [anomalyZScoreThreshold, setAnomalyZScoreThreshold] = useState(2.3);
+  const [aiInsightType, setAiInsightType] = useState('household');
   const [vacationStartDate, setVacationStartDate] = useState('');
   const [vacationEndDate, setVacationEndDate] = useState('');
   const [vacationNote, setVacationNote] = useState('');
@@ -56,6 +57,33 @@ export default function Dashboard() {
     };
   }, [anomalyIqrMultiplier, anomalyZScoreThreshold]);
 
+  const isAIInsightsPage = activeType === 'ai-insights';
+
+  // Hintergrund-Queries für Anomalie-Badges (immer aktiv)
+  const badgeQueryOpts = { requestPolicy: 'cache-and-network' };
+  const [{ data: badgeHousehold }] = useQuery({ query: GET_DASHBOARD_DATA, variables: { type: 'household', days: 30, ...normalizedAnomalyThresholds }, ...badgeQueryOpts });
+  const [{ data: badgeHeatpump }] = useQuery({ query: GET_DASHBOARD_DATA, variables: { type: 'heatpump', days: 30, ...normalizedAnomalyThresholds }, ...badgeQueryOpts });
+  const [{ data: badgeWater }] = useQuery({ query: GET_DASHBOARD_DATA, variables: { type: 'water', days: 30, ...normalizedAnomalyThresholds }, ...badgeQueryOpts });
+  const [{ data: badgeTemperature }] = useQuery({ query: GET_DASHBOARD_DATA, variables: { type: 'temperature', days: 30, ...normalizedAnomalyThresholds }, ...badgeQueryOpts });
+
+  const anomalyBadgeCounts = useMemo(() => ({
+    household: Number(badgeHousehold?.getDashboardInsights?.anomalyCount || 0),
+    heatpump: Number(badgeHeatpump?.getDashboardInsights?.anomalyCount || 0),
+    water: Number(badgeWater?.getDashboardInsights?.anomalyCount || 0),
+    temperature: Number(badgeTemperature?.getDashboardInsights?.anomalyCount || 0),
+  }), [badgeHousehold, badgeHeatpump, badgeWater, badgeTemperature]);
+
+  const [{ data: aiInsightData, fetching: aiInsightFetching }, reexecuteAiInsightQuery] = useQuery({
+    query: GET_DASHBOARD_DATA,
+    variables: {
+      type: aiInsightType,
+      ...rangeVariables,
+      ...normalizedAnomalyThresholds,
+    },
+    requestPolicy: 'network-only',
+    pause: !isAIInsightsPage,
+  });
+
   const [{ data, fetching, error }, reexecuteQuery] = useQuery({
     query: GET_DASHBOARD_DATA,
     variables: {
@@ -63,7 +91,8 @@ export default function Dashboard() {
       ...rangeVariables,
       ...normalizedAnomalyThresholds,
     },
-    requestPolicy: 'network-only'
+    requestPolicy: 'network-only',
+    pause: isAIInsightsPage,
   });
 
   const [addResult, addReading] = useMutation(ADD_READING);
@@ -79,6 +108,13 @@ export default function Dashboard() {
   const vacationPeriods = data?.getVacationPeriods || [];
   const isElectricityType = activeType === 'household' || activeType === 'heatpump';
   const anomalyPointIds = data?.getDashboardInsights?.anomalyPointIds || [];
+
+  const aiIsElectricityType = aiInsightType === 'household' || aiInsightType === 'heatpump';
+
+  const totalAnomalyBadge = useMemo(
+    () => Object.values(anomalyBadgeCounts).reduce((sum, n) => sum + n, 0),
+    [anomalyBadgeCounts]
+  );
 
   const monthOptions = useMemo(() => {
     const months = new Map();
@@ -271,6 +307,238 @@ export default function Dashboard() {
 
   if (error) return <div className="p-20 bg-red-500 text-white">Fehler: {error.message}</div>;
 
+  const renderAIInsightsPage = () => {
+    const AI_TYPES = TYPES.filter((t) => t.id !== 'waste' && t.id !== 'ai-insights');
+    const aiInsights = aiInsightData?.getDashboardInsights;
+    const aiAnomalySamples = Array.isArray(aiInsights?.anomalySamples) ? aiInsights.anomalySamples : [];
+    const aiUnit = getDisplayUnit(aiInsightType);
+    const aiShowAnomalies = aiInsightType !== 'temperature';
+    const aiTrendLabel = aiInsights ? getTrendLabel(aiInsights.trend) : null;
+    const aiAnomalySeverityLabel = aiInsights ? getAnomalySeverityLabel(aiInsights.anomalySeverity) : null;
+
+    return (
+      <div className="space-y-6">
+        {/* Insights-Sektion für ausgewählten Typ */}
+        <section className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-6">
+          <h2 className="text-xl font-bold mb-4 text-indigo-700 dark:text-indigo-300">🧠 AI Insights</h2>
+
+          {/* Typ-Tabs */}
+          <div className="flex flex-wrap gap-2 mb-5">
+            {AI_TYPES.map((t) => {
+              const cnt = anomalyBadgeCounts[t.id] || 0;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setAiInsightType(t.id)}
+                  className={`relative px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    aiInsightType === t.id
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 dark:hover:bg-indigo-800/40'
+                  }`}
+                >
+                  {t.icon} {t.label}
+                  {cnt > 0 ? (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                      {cnt}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {aiInsightFetching ? (
+            <p className="animate-pulse text-sm text-indigo-700 dark:text-indigo-300">Lade Insights…</p>
+          ) : aiInsights?.summary ? (
+            <div>
+              <div className="flex flex-wrap gap-3 mb-2">
+                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-300 uppercase tracking-wider">
+                  Trend: {aiTrendLabel}
+                </p>
+                {aiShowAnomalies ? (
+                  <p className="text-xs font-bold text-indigo-600 dark:text-indigo-300 uppercase tracking-wider">
+                    Anomalien: {Number(aiInsights.anomalyCount || 0)} ({aiAnomalySeverityLabel})
+                  </p>
+                ) : null}
+              </div>
+              <p className="text-sm text-indigo-800 dark:text-indigo-200 mb-3">{aiInsights.summary}</p>
+              {aiShowAnomalies ? <p className="text-sm text-indigo-800 dark:text-indigo-200">{aiInsights.anomalyMessage}</p> : null}
+              {aiShowAnomalies && aiAnomalySamples.length > 0 ? (
+                <div className="mt-4 pt-4 border-t border-indigo-200 dark:border-indigo-700">
+                  <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider mb-2">Auffällige Werte</p>
+                  <div className="space-y-1">
+                    {aiAnomalySamples.map((sample, index) => (
+                      aiIsElectricityType ? (
+                        <button
+                          key={`${sample.date}-${index}`}
+                          type="button"
+                          onClick={() => handleAnomalySelect(sample)}
+                          className="w-full flex justify-between text-sm text-indigo-900 dark:text-indigo-100 px-2 py-1 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition"
+                        >
+                          <span>
+                            {sample.date}
+                            {sample.note ? <span className="ml-2 text-xs text-indigo-600 dark:text-indigo-300">• Bemerkung</span> : null}
+                          </span>
+                          <span className="font-semibold">{Number(sample.value).toFixed(2)} {aiUnit}</span>
+                        </button>
+                      ) : (
+                        <div key={`${sample.date}-${index}`} className="flex justify-between text-sm text-indigo-900 dark:text-indigo-100">
+                          <span>{sample.date}</span>
+                          <span className="font-semibold">{Number(sample.value).toFixed(2)} {aiUnit}</span>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {aiShowAnomalies && aiIsElectricityType && selectedAnomaly?.id ? (
+                <form onSubmit={handleSaveAnomalyNote} className="mt-4 pt-4 border-t border-indigo-200 dark:border-indigo-700 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                      Bemerkung für {selectedAnomaly.date} · {Number(selectedAnomaly.value).toFixed(2)} {aiUnit}
+                    </p>
+                    <button type="button" onClick={() => { setSelectedAnomaly(null); setAnomalyNote(''); }} className="text-xs text-indigo-700 dark:text-indigo-300 hover:underline">Abbrechen</button>
+                  </div>
+                  <textarea
+                    value={anomalyNote}
+                    onChange={(e) => setAnomalyNote(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-xl border border-indigo-200 dark:border-indigo-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                    placeholder="Bemerkung zu diesem auffälligen Verbrauch…"
+                  />
+                  <button type="submit" disabled={updateNoteResult.fetching} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50">
+                    {updateNoteResult.fetching ? 'Speichert…' : 'Bemerkung speichern'}
+                  </button>
+                </form>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-sm text-indigo-500 dark:text-indigo-400">Keine Insights verfügbar für diesen Zeitraum.</p>
+          )}
+        </section>
+
+        <section className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <h2 className="text-2xl font-bold mb-6 text-indigo-600 dark:text-indigo-400">Anomalie-Erkennung konfigurieren</h2>
+          
+          <p className="text-gray-700 dark:text-gray-300 mb-6 leading-relaxed">
+            Das Dashboard nutzt zwei komplementäre statistische Methoden zur Identifikation auffälliger Verbrauchswerte. Beide Schwellenwerte sind hier konfigurierbar und beeinflussen die Echtzeitanzeige im Diagramm.
+          </p>
+
+          <div className="space-y-6">
+            {/* IQR-Multiplikator */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="text-3xl">📊</div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-2">IQR-Multiplikator</h3>
+                  <p className="text-sm text-blue-800 dark:text-blue-200 mb-4">
+                    Basiert auf der Box-Plot-Methode (Interquartilsabstand). Identifiziert Werte außerhalb der erwarteten Verteilung der Daten.
+                  </p>
+                  
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-lg mb-4 font-mono text-xs text-gray-700 dark:text-gray-300 overflow-x-auto">
+                    Anomalie = Wert &lt; Q1 - (IQR × Multiplikator)<br/>
+                    ODER<br/>
+                    Wert &gt; Q3 + (IQR × Multiplikator)
+                  </div>
+
+                  <div className="space-y-2 mb-4 text-sm text-blue-900 dark:text-blue-200">
+                    <p><strong>Interpretationen:</strong></p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li><strong>1.5</strong> (Standard): Erkennt klassische Ausreißer</li>
+                      <li><strong>2.0+</strong> (konservativer): Nur extreme Ausreißer</li>
+                      <li><strong>&lt;1.5</strong> (strenger): Mehr Anomalien erkannt</li>
+                    </ul>
+                  </div>
+
+                  <label className="block">
+                    <span className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 block">
+                      Multiplikator einstellen:
+                    </span>
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={anomalyIqrMultiplier}
+                      onChange={(e) => setAnomalyIqrMultiplier(e.target.value)}
+                      className="w-full rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-900 px-4 py-3 text-lg font-semibold text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Z-Score-Schwelle */}
+            <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-6">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="text-3xl">📈</div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-purple-900 dark:text-purple-100 mb-2">Z-Score-Schwelle</h3>
+                  <p className="text-sm text-purple-800 dark:text-purple-200 mb-4">
+                    Misst die Abweichung eines Wertes vom Durchschnitt in Einheiten der Standardabweichung. Funktioniert gut bei Daten mit normaler Verteilung.
+                  </p>
+                  
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-lg mb-4 font-mono text-xs text-gray-700 dark:text-gray-300 overflow-x-auto">
+                    Z-Score = |Wert - Durchschnitt| / Standardabweichung<br/>
+                    Anomalie = Z-Score ≥ Schwelle
+                  </div>
+
+                  <div className="space-y-2 mb-4 text-sm text-purple-900 dark:text-purple-200">
+                    <p><strong>Richtwerte:</strong></p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li><strong>2.3</strong> (Strom-Standard): ~2% der normalen Werte</li>
+                      <li><strong>2.8+</strong> (konservativer): Weniger falsch-positive</li>
+                      <li><strong>&lt;2.3</strong> (strenger): Mehr Anomalien erkannt</li>
+                    </ul>
+                  </div>
+
+                  <label className="block">
+                    <span className="text-sm font-semibold text-purple-900 dark:text-purple-100 mb-2 block">
+                      Schwelle einstellen:
+                    </span>
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={anomalyZScoreThreshold}
+                      onChange={(e) => setAnomalyZScoreThreshold(e.target.value)}
+                      className="w-full rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-900 px-4 py-3 text-lg font-semibold text-purple-600 dark:text-purple-400 focus:ring-2 focus:ring-purple-500"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Hybrid-Ansatz */}
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="text-3xl">🎯</div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-green-900 dark:text-green-100 mb-2">So helfen die Methoden zusammen</h3>
+                  <p className="text-sm text-green-800 dark:text-green-200 mb-3">
+                    Ein Verbrauchswert wird als Anomalie erkannt, wenn er <strong>mindestens eine</strong> der beiden Methoden überschreitet:
+                  </p>
+                  <ul className="space-y-2 text-sm text-green-900 dark:text-green-200">
+                    <li>✓ <strong>IQR verfehlt, Z-Score treffer:</strong> Wert ist selten, aber konsistent mit der Verteilung</li>
+                    <li>✓ <strong>Z-Score verfehlt, IQR treffer:</strong> Wert ist extremer Ausreißer, auch wenn statistisch weniger überraschend</li>
+                    <li>✓ <strong>Beide treffen:</strong> Klare Anomalie, sollte untersucht werden</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-6">
+              <p className="text-sm text-indigo-900 dark:text-indigo-200">
+                <strong>💡 Tipp:</strong> Änderungen gelten sofort für die aktuelle Ansicht. Wechseln Sie zu einem Datentyp, um die neuen Schwellenwerte live zu sehen. Auffällige Punkte werden im Diagramm rot markiert.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
   const renderStats = () => {
     const insights = data?.getDashboardInsights;
     const stats = getStatsViewModel(activeType, insights, wasteSummary, selectedRangeText, chartData);
@@ -437,23 +705,34 @@ export default function Dashboard() {
       <header className="max-w-4xl mx-auto mb-8">
         <h1 className="text-3xl font-bold mb-6">Energie-Dashboard</h1>
         <div className="flex flex-wrap gap-2 bg-gray-200 dark:bg-gray-800 p-1 rounded-xl w-full">
-          {TYPES.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveType(t.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                activeType === t.id ? 'bg-white dark:bg-gray-700 shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t.icon} {t.label}
-            </button>
-          ))}
+          {TYPES.map((t) => {
+            const badgeCount = t.id === 'ai-insights' ? totalAnomalyBadge : 0;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveType(t.id)}
+                className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeType === t.id ? 'bg-white dark:bg-gray-700 shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {t.icon} {t.label}
+                {badgeCount > 0 ? (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                    {badgeCount}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto space-y-8">
-        {renderStats()}
-        {renderInsight()}
+        {isAIInsightsPage ? (
+          renderAIInsightsPage()
+        ) : (
+          <>
+            {renderStats()}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:items-stretch">
           <section className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col">
@@ -786,7 +1065,8 @@ export default function Dashboard() {
             </div>
           )}
         </section>
-
+        </>
+        )}
       </main>
 
       <Toast
