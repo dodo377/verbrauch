@@ -606,7 +606,10 @@ npm run dev
 
 ### Docker
 
-Mit Docker Compose läuft das Frontend auf dem in `.env` konfigurierten `FRONTEND_HOST_PORT` (Standard: `8080`):
+Mit Docker Compose laufen Frontend und Backend auf den in `.env` konfigurierten Ports:
+
+- `FRONTEND_HOST_PORT` (Standard: `8080`)
+- `BACKEND_HOST_PORT` (Standard: `4001`)
 
 ```bash
 docker compose up -d --build
@@ -614,7 +617,8 @@ docker compose up -d --build
 
 Auf dem anderen Gerät öffnen:
 
-- `http://<server-ip>:8080`
+- Frontend: `http://<server-ip>:8080`
+- Backend (GraphQL): `http://<server-ip>:4001/graphql`
 
 Hinweis: Ohne HTTPS ist die klassische „Installieren als App“-Funktion je nach Browser/Plattform eingeschränkt.
 
