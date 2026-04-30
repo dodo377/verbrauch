@@ -83,7 +83,7 @@ export class DashboardInsightsService {
   }
 
   static detectAnomalies(points, type, thresholds = {}) {
-    const candidatePoints = points.filter((point) => !this.shouldIgnoreForAnomaly(point, type));
+    const candidatePoints = points.filter((point, index) => !this.shouldIgnoreForAnomaly(point, type, points, index));
 
     if (candidatePoints.length < 4) {
       return {
@@ -122,9 +122,15 @@ export class DashboardInsightsService {
     });
 
     const iqrAnomalies = values.map((value) => value < lowerFence || value > upperFence);
+    const useStrictCombination = ['household', 'heatpump', 'water'].includes(type);
+
     const anomalyIndices = values
       .map((_, index) => index)
-      .filter((index) => iqrAnomalies[index] || rollingAnomalies[index]);
+      .filter((index) => (
+        useStrictCombination
+          ? (iqrAnomalies[index] && rollingAnomalies[index])
+          : (iqrAnomalies[index] || rollingAnomalies[index])
+      ));
 
     const anomalyValues = anomalyIndices.map((index) => values[index]);
 
@@ -166,10 +172,28 @@ export class DashboardInsightsService {
     };
   }
 
-  static shouldIgnoreForAnomaly(point, type) {
-    if (!point?.isVacation) return false;
+  static shouldIgnoreForAnomaly(point, type, points = [], index = -1) {
     if (!['household', 'heatpump', 'water'].includes(type)) return false;
-    return Math.abs(Number(point.value)) < 1e-9;
+
+    const numericValue = Number(point?.value);
+    const isZeroLike = Number.isFinite(numericValue) && Math.abs(numericValue) < 1e-6;
+    const hasVacationNote = String(point?.note || '').trim().toLowerCase() === 'urlaub';
+    const isVacationPoint = Boolean(point?.isVacation) || hasVacationNote;
+
+    if (isVacationPoint && isZeroLike) {
+      return true;
+    }
+
+    const previousPoint = index > 0 ? points[index - 1] : null;
+    const previousHasVacationNote = String(previousPoint?.note || '').trim().toLowerCase() === 'urlaub';
+    const previousIsVacation = Boolean(previousPoint?.isVacation) || previousHasVacationNote;
+
+    // The first non-vacation day after a vacation block often contains carry-over effects.
+    if (previousIsVacation && !isVacationPoint) {
+      return true;
+    }
+
+    return false;
   }
 
   static resolveAnomalyThresholds(type, thresholds = {}) {

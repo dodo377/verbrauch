@@ -126,10 +126,10 @@ describe('DashboardInsightsService', () => {
         { id: '6', date: '06.04.', value: 14 },
       ];
 
-      const strictResult = DashboardInsightsService.detectAnomalies(points, 'household', {
+      const strictResult = DashboardInsightsService.detectAnomalies(points, 'temperature', {
         anomalyZScoreThreshold: 1.8,
       });
-      const looseResult = DashboardInsightsService.detectAnomalies(points, 'household', {
+      const looseResult = DashboardInsightsService.detectAnomalies(points, 'temperature', {
         anomalyZScoreThreshold: 10,
       });
 
@@ -155,6 +155,24 @@ describe('DashboardInsightsService', () => {
       expect(household.pointIds).not.toContain('5');
       expect(heatpump.pointIds).not.toContain('5');
       expect(water.pointIds).not.toContain('5');
+    });
+
+    it('sollte den ersten Tag direkt nach Urlaub nicht als Anomalie zählen', () => {
+      const points = [
+        { id: '1', date: '01.04.', value: 5, isVacation: false },
+        { id: '2', date: '02.04.', value: 5.2, isVacation: false },
+        { id: '3', date: '03.04.', value: 0, isVacation: true, note: 'Urlaub' },
+        { id: '4', date: '04.04.', value: 0, isVacation: true, note: 'Urlaub' },
+        { id: '5', date: '05.04.', value: 25, isVacation: false },
+        { id: '6', date: '06.04.', value: 5.1, isVacation: false },
+      ];
+
+      const result = DashboardInsightsService.detectAnomalies(points, 'household');
+
+      expect(result.pointIds).not.toContain('5');
+      expect(result.samples).toEqual(expect.not.arrayContaining([
+        expect.objectContaining({ id: '5' }),
+      ]));
     });
   });
 
