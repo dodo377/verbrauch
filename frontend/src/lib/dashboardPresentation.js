@@ -174,11 +174,11 @@ export function getStatsViewModel(activeType, insights, wasteSummary, selectedRa
     ? Number(latestTodayPoint.value).toFixed(2)
     : '–';
 
-  const weeklyWindow = chartData
-    .filter((point) => Number.isFinite(Number(point?.value)))
-    .slice(-7);
-  const weeklyValue = weeklyWindow.length > 0
-    ? weeklyWindow.reduce((sum, point) => sum + Number(point.value), 0).toFixed(2)
+  const lastWaterPoint = chartData
+    .filter((point) => Number.isFinite(Number(point?.value)) && !point?.isVacation)
+    .at(-1);
+  const lastWaterValue = lastWaterPoint
+    ? Number(lastWaterPoint.value).toFixed(2)
     : '–';
 
   if (activeType === 'temperature') {
@@ -215,8 +215,8 @@ export function getStatsViewModel(activeType, insights, wasteSummary, selectedRa
       unit: isWater ? 'm³' : 'kWh',
     },
     tertiary: {
-      label: isWater ? 'Verbrauch (7 Tage)' : 'Verbrauch heute',
-      value: isWater ? weeklyValue : todayValue,
+      label: isWater ? 'Letzte Ablesung' : 'Verbrauch heute',
+      value: isWater ? lastWaterValue : todayValue,
       unit: isWater ? 'm³' : 'kWh',
     },
   };

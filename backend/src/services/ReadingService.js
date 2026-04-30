@@ -419,6 +419,27 @@ static async getChartData(userId, type, range = {}) {
       return [];
     }
 
+    // Wasser: Ablesung nur montags → einen Datenpunkt pro Ablesung zurückgeben
+    if (type === 'water') {
+      const points = [];
+      for (let i = 1; i < readings.length; i++) {
+        const current = readings[i];
+        const previous = readings[i - 1];
+        if (current.timestamp < startMs || current.timestamp > endMs) continue;
+        const consumption = Math.max(0, current.value - previous.value);
+        const dateKey = this.toBerlinDateKey(current.timestamp);
+        const isVacation = vacationDayKeySet.has(dateKey);
+        points.push({
+          id: current.id,
+          date: this.formatDisplayDateFromKey(dateKey),
+          value: Number(consumption.toFixed(2)),
+          note: isVacation ? 'Urlaub' : (current.note || ''),
+          isVacation,
+        });
+      }
+      return points;
+    }
+
     const dailyMap = new Map();
 
     for (let i = 1; i < readings.length; i++) {
