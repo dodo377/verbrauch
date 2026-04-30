@@ -6,6 +6,7 @@ export class DashboardInsightsService {
         date: item.date,
         value: Number(item.value),
         note: item.note || '',
+        isVacation: Boolean(item.isVacation),
       }))
       .filter((item) => Number.isFinite(item.value));
 
@@ -82,7 +83,9 @@ export class DashboardInsightsService {
   }
 
   static detectAnomalies(points, type, thresholds = {}) {
-    if (points.length < 4) {
+    const candidatePoints = points.filter((point) => !this.shouldIgnoreForAnomaly(point, type));
+
+    if (candidatePoints.length < 4) {
       return {
         count: 0,
         severity: 'none',
@@ -93,7 +96,7 @@ export class DashboardInsightsService {
     }
 
     const { iqrMultiplier, zScoreThreshold } = this.resolveAnomalyThresholds(type, thresholds);
-    const values = points.map((point) => point.value);
+    const values = candidatePoints.map((point) => point.value);
 
     const sorted = [...values].sort((a, b) => a - b);
     const q1 = this.percentile(sorted, 0.25);
@@ -144,14 +147,14 @@ export class DashboardInsightsService {
     const anomalySamples = anomalyIndices
       .slice(0, 5)
       .map((index) => ({
-        id: points[index]?.id || null,
-        date: points[index]?.date || '-',
+        id: candidatePoints[index]?.id || null,
+        date: candidatePoints[index]?.date || '-',
         value: Number(values[index].toFixed(2)),
-        note: points[index]?.note || '',
+        note: candidatePoints[index]?.note || '',
       }));
 
     const anomalyPointIds = anomalyIndices
-      .map((index) => points[index]?.id)
+      .map((index) => candidatePoints[index]?.id)
       .filter((id) => Boolean(id));
 
     return {
@@ -161,6 +164,12 @@ export class DashboardInsightsService {
       pointIds: anomalyPointIds,
       samples: anomalySamples,
     };
+  }
+
+  static shouldIgnoreForAnomaly(point, type) {
+    if (!point?.isVacation) return false;
+    if (!['household', 'heatpump', 'water'].includes(type)) return false;
+    return Math.abs(Number(point.value)) < 1e-9;
   }
 
   static resolveAnomalyThresholds(type, thresholds = {}) {

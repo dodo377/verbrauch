@@ -135,6 +135,27 @@ describe('DashboardInsightsService', () => {
 
       expect(strictResult.count).toBeGreaterThan(looseResult.count);
     });
+
+    it('sollte Urlaubs-Nullwerte bei Strom, Wärmepumpe und Wasser nicht als Anomalie werten', () => {
+      const points = [
+        { id: '1', date: '01.04.', value: 4, isVacation: false },
+        { id: '2', date: '02.04.', value: 4.2, isVacation: false },
+        { id: '3', date: '03.04.', value: 3.9, isVacation: false },
+        { id: '4', date: '04.04.', value: 4.1, isVacation: false },
+        { id: '5', date: '05.04.', value: 0, isVacation: true },
+      ];
+
+      const household = DashboardInsightsService.detectAnomalies(points, 'household');
+      const heatpump = DashboardInsightsService.detectAnomalies(points, 'heatpump');
+      const water = DashboardInsightsService.detectAnomalies(points, 'water');
+
+      expect(household.count).toBe(0);
+      expect(heatpump.count).toBe(0);
+      expect(water.count).toBe(0);
+      expect(household.pointIds).not.toContain('5');
+      expect(heatpump.pointIds).not.toContain('5');
+      expect(water.pointIds).not.toContain('5');
+    });
   });
 
   describe('resolveAnomalyThresholds()', () => {
