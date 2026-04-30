@@ -157,21 +157,26 @@ describe('DashboardInsightsService', () => {
       expect(water.pointIds).not.toContain('5');
     });
 
-    it('sollte den ersten Tag direkt nach Urlaub nicht als Anomalie zählen', () => {
+    it('sollte den ersten Tag direkt nach Urlaub als Anomalie mit Hinweis markieren', () => {
       const points = [
-        { id: '1', date: '01.04.', value: 5, isVacation: false },
-        { id: '2', date: '02.04.', value: 5.2, isVacation: false },
-        { id: '3', date: '03.04.', value: 0, isVacation: true, note: 'Urlaub' },
-        { id: '4', date: '04.04.', value: 0, isVacation: true, note: 'Urlaub' },
-        { id: '5', date: '05.04.', value: 25, isVacation: false },
-        { id: '6', date: '06.04.', value: 5.1, isVacation: false },
+        { id: '1', date: '01.04.', value: 4, isVacation: false },
+        { id: '2', date: '02.04.', value: 4.1, isVacation: false },
+        { id: '3', date: '03.04.', value: 3.9, isVacation: false },
+        { id: '4', date: '04.04.', value: 4.2, isVacation: false },
+        { id: '5', date: '05.04.', value: 0, isVacation: true, note: 'Urlaub' },
+        { id: '6', date: '06.04.', value: 20, isVacation: false },
+        { id: '7', date: '07.04.', value: 4.0, isVacation: false },
+        { id: '8', date: '08.04.', value: 4.1, isVacation: false },
       ];
 
       const result = DashboardInsightsService.detectAnomalies(points, 'household');
 
-      expect(result.pointIds).not.toContain('5');
-      expect(result.samples).toEqual(expect.not.arrayContaining([
-        expect.objectContaining({ id: '5' }),
+      expect(result.pointIds).toContain('6');
+      expect(result.samples).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: '6',
+          note: 'Ablesung nach Urlaub',
+        }),
       ]));
     });
   });

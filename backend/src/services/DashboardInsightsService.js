@@ -83,9 +83,11 @@ export class DashboardInsightsService {
   }
 
   static detectAnomalies(points, type, thresholds = {}) {
-    const candidatePoints = points.filter((point, index) => !this.shouldIgnoreForAnomaly(point, type, points, index));
+    const candidates = points
+      .map((point, originalIndex) => ({ point, originalIndex }))
+      .filter(({ point, originalIndex }) => !this.shouldIgnoreForAnomaly(point, type, points, originalIndex));
 
-    if (candidatePoints.length < 4) {
+    if (candidates.length < 4) {
       return {
         count: 0,
         severity: 'none',
@@ -96,7 +98,7 @@ export class DashboardInsightsService {
     }
 
     const { iqrMultiplier, zScoreThreshold } = this.resolveAnomalyThresholds(type, thresholds);
-    const values = candidatePoints.map((point) => point.value);
+  const values = candidates.map(({ point }) => point.value);
 
     const sorted = [...values].sort((a, b) => a - b);
     const q1 = this.percentile(sorted, 0.25);
@@ -153,14 +155,19 @@ export class DashboardInsightsService {
     const anomalySamples = anomalyIndices
       .slice(0, 5)
       .map((index) => ({
-        id: candidatePoints[index]?.id || null,
-        date: candidatePoints[index]?.date || '-',
+        id: candidates[index]?.point?.id || null,
+        date: candidates[index]?.point?.date || '-',
         value: Number(values[index].toFixed(2)),
-        note: candidatePoints[index]?.note || '',
+        note: this.withPostVacationHint(
+          candidates[index]?.point?.note || '',
+          type,
+          points,
+          candidates[index]?.originalIndex
+        ),
       }));
 
     const anomalyPointIds = anomalyIndices
-      .map((index) => candidatePoints[index]?.id)
+      .map((index) => candidates[index]?.point?.id)
       .filter((id) => Boolean(id));
 
     return {
@@ -184,16 +191,33 @@ export class DashboardInsightsService {
       return true;
     }
 
-    const previousPoint = index > 0 ? points[index - 1] : null;
+    return false;
+  }
+
+  static withPostVacationHint(note, type, points = [], index = -1) {
+    if (!this.isPostVacationPoint(type, points, index)) {
+      return note;
+    }
+
+    const hint = 'Ablesung nach Urlaub';
+    const normalized = String(note || '').trim();
+    if (!normalized) return hint;
+    return normalized.toLowerCase().includes(hint.toLowerCase()) ? normalized : `${normalized} | ${hint}`;
+  }
+
+  static isPostVacationPoint(type, points = [], index = -1) {
+    if (!['household', 'heatpump', 'water'].includes(type)) return false;
+    if (!Number.isInteger(index) || index <= 0 || index >= points.length) return false;
+
+    const previousPoint = points[index - 1];
     const previousHasVacationNote = String(previousPoint?.note || '').trim().toLowerCase() === 'urlaub';
     const previousIsVacation = Boolean(previousPoint?.isVacation) || previousHasVacationNote;
 
-    // The first non-vacation day after a vacation block often contains carry-over effects.
-    if (previousIsVacation && !isVacationPoint) {
-      return true;
-    }
+    const currentPoint = points[index];
+    const currentHasVacationNote = String(currentPoint?.note || '').trim().toLowerCase() === 'urlaub';
+    const currentIsVacation = Boolean(currentPoint?.isVacation) || currentHasVacationNote;
 
-    return false;
+    return previousIsVacation && !currentIsVacation;
   }
 
   static resolveAnomalyThresholds(type, thresholds = {}) {
