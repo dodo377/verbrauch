@@ -179,6 +179,22 @@ describe('DashboardInsightsService', () => {
         }),
       ]));
     });
+
+    it('sollte den Tag nach Urlaub auch dann markieren, wenn statistisch keine Anomalie erkannt wird', () => {
+      const points = [
+        { id: '1', date: '05.04.', value: 0, isVacation: true, note: 'Urlaub' },
+        { id: '2', date: '06.04.', value: 4.1, isVacation: false },
+        { id: '3', date: '07.04.', value: 4.0, isVacation: false },
+      ];
+
+      const result = DashboardInsightsService.detectAnomalies(points, 'household');
+
+      expect(result.count).toBe(1);
+      expect(result.pointIds).toEqual(['2']);
+      expect(result.samples).toEqual([
+        expect.objectContaining({ id: '2', note: 'Ablesung nach Urlaub' }),
+      ]);
+    });
   });
 
   describe('resolveAnomalyThresholds()', () => {

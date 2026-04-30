@@ -87,7 +87,11 @@ export class DashboardInsightsService {
       .map((point, originalIndex) => ({ point, originalIndex }))
       .filter(({ point, originalIndex }) => !this.shouldIgnoreForAnomaly(point, type, points, originalIndex));
 
-    if (candidates.length < 4) {
+    const forcedAnomalyIndices = candidates
+      .map((candidate, index) => (this.isPostVacationPoint(type, points, candidate.originalIndex) ? index : -1))
+      .filter((index) => index >= 0);
+
+    if (candidates.length < 4 && forcedAnomalyIndices.length === 0) {
       return {
         count: 0,
         severity: 'none',
@@ -98,46 +102,51 @@ export class DashboardInsightsService {
     }
 
     const { iqrMultiplier, zScoreThreshold } = this.resolveAnomalyThresholds(type, thresholds);
-  const values = candidates.map(({ point }) => point.value);
+    const values = candidates.map(({ point }) => point.value);
 
-    const sorted = [...values].sort((a, b) => a - b);
-    const q1 = this.percentile(sorted, 0.25);
-    const q3 = this.percentile(sorted, 0.75);
-    const iqr = q3 - q1;
+    let anomalyIndices = [];
 
-    const lowerFence = q1 - iqrMultiplier * iqr;
-    const upperFence = q3 + iqrMultiplier * iqr;
+    if (candidates.length >= 4) {
+      const sorted = [...values].sort((a, b) => a - b);
+      const q1 = this.percentile(sorted, 0.25);
+      const q3 = this.percentile(sorted, 0.75);
+      const iqr = q3 - q1;
 
-    const windowSize = Math.min(7, Math.max(3, Math.floor(values.length / 3)));
-    const rollingAnomalies = values.map((value, index) => {
-      if (index < windowSize) return false;
+      const lowerFence = q1 - iqrMultiplier * iqr;
+      const upperFence = q3 + iqrMultiplier * iqr;
 
-      const window = values.slice(index - windowSize, index);
-      const baseline = window.reduce((sum, item) => sum + item, 0) / window.length;
-      const variance = window.reduce((sum, item) => sum + ((item - baseline) ** 2), 0) / window.length;
-      const stdDev = Math.sqrt(variance);
+      const windowSize = Math.min(7, Math.max(3, Math.floor(values.length / 3)));
+      const rollingAnomalies = values.map((value, index) => {
+        if (index < windowSize) return false;
 
-      if (!Number.isFinite(stdDev) || stdDev === 0) return false;
+        const window = values.slice(index - windowSize, index);
+        const baseline = window.reduce((sum, item) => sum + item, 0) / window.length;
+        const variance = window.reduce((sum, item) => sum + ((item - baseline) ** 2), 0) / window.length;
+        const stdDev = Math.sqrt(variance);
 
-      const zScore = Math.abs((value - baseline) / stdDev);
-      return zScore >= zScoreThreshold;
-    });
+        if (!Number.isFinite(stdDev) || stdDev === 0) return false;
 
-    const iqrAnomalies = values.map((value) => value < lowerFence || value > upperFence);
-    const useStrictCombination = ['household', 'heatpump', 'water'].includes(type);
+        const zScore = Math.abs((value - baseline) / stdDev);
+        return zScore >= zScoreThreshold;
+      });
 
-    const anomalyIndices = values
-      .map((_, index) => index)
-      .filter((index) => (
-        useStrictCombination
-          ? (iqrAnomalies[index] && rollingAnomalies[index])
-          : (iqrAnomalies[index] || rollingAnomalies[index])
-      ));
+      const iqrAnomalies = values.map((value) => value < lowerFence || value > upperFence);
+      const useStrictCombination = ['household', 'heatpump', 'water'].includes(type);
 
-    const anomalyValues = anomalyIndices.map((index) => values[index]);
+      anomalyIndices = values
+        .map((_, index) => index)
+        .filter((index) => (
+          useStrictCombination
+            ? (iqrAnomalies[index] && rollingAnomalies[index])
+            : (iqrAnomalies[index] || rollingAnomalies[index])
+        ));
+    }
 
-    const count = anomalyValues.length;
-    const ratio = count / values.length;
+    const mergedIndices = [...new Set([...anomalyIndices, ...forcedAnomalyIndices])]
+      .sort((a, b) => a - b);
+
+    const count = mergedIndices.length;
+    const ratio = values.length > 0 ? count / values.length : 0;
 
     if (count === 0) {
       return {
@@ -152,7 +161,7 @@ export class DashboardInsightsService {
     const severity = ratio >= 0.25 ? 'high' : ratio >= 0.12 ? 'medium' : 'low';
     const typeLabel = type === 'temperature' ? 'Temperaturwerte' : 'Verbrauchswerte';
 
-    const anomalySamples = anomalyIndices
+    const anomalySamples = mergedIndices
       .slice(0, 5)
       .map((index) => ({
         id: candidates[index]?.point?.id || null,
@@ -166,7 +175,7 @@ export class DashboardInsightsService {
         ),
       }));
 
-    const anomalyPointIds = anomalyIndices
+    const anomalyPointIds = mergedIndices
       .map((index) => candidates[index]?.point?.id)
       .filter((id) => Boolean(id));
 
