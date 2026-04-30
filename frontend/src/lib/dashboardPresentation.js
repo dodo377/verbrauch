@@ -30,6 +30,40 @@ const WASTE_SUBTYPE_MAP = WASTE_SUBTYPES.reduce((acc, item) => {
   return acc;
 }, {});
 
+const WASTE_SUBTYPE_ALIASES = {
+  restmuelltonne: 'restmuell',
+  restmull: 'restmuell',
+  restmulltonne: 'restmuell',
+  restmuell: 'restmuell',
+  restmulltonne_: 'restmuell',
+  gelbetonne: 'gelberSack',
+  gelbertonne: 'gelberSack',
+  gelbersack: 'gelberSack',
+  gelber_sack: 'gelberSack',
+  yellow: 'gelberSack',
+  papiermull: 'papier',
+  papiermuell: 'papier',
+  biomull: 'bio',
+  biomuell: 'bio',
+};
+
+function normalizeWasteSubtype(subtype) {
+  const raw = String(subtype || '').trim();
+  if (!raw) return '';
+
+  if (WASTE_SUBTYPE_MAP[raw]) return raw;
+
+  const folded = raw
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]/g, '');
+
+  if (!folded) return raw;
+
+  return WASTE_SUBTYPE_ALIASES[folded] || raw;
+}
+
 export function getRangeVariables(selectedRange) {
   if (selectedRange === '7d') {
     return { days: 7, startDate: null, endDate: null };
@@ -103,7 +137,9 @@ export function getChartTitle(activeType, selectedRangeText) {
 }
 
 export function getWasteSubtypeMeta(subtype) {
-  return WASTE_SUBTYPE_MAP[subtype] || {
+  const normalizedSubtype = normalizeWasteSubtype(subtype);
+
+  return WASTE_SUBTYPE_MAP[normalizedSubtype] || {
     id: subtype || 'unknown',
     label: subtype || 'Unbekannt',
     icon: '🗑️',
