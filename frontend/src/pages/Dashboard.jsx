@@ -8,6 +8,7 @@ import {
   DELETE_READING,
   ADD_VACATION_PERIOD,
   DELETE_VACATION_PERIOD,
+  UPDATE_ENERGY_COST_SETTINGS,
 } from '../graphql/mutations.js';
 import ConsumptionChart from '../components/ConsumptionChart.jsx';
 import Toast from '../components/Toast.jsx';
@@ -28,6 +29,9 @@ import {
 } from '../lib/dashboardPresentation.js';
 
 export default function Dashboard() {
+  const LEGACY_MONTHLY_ADVANCE_GROSS = 63;
+  const CUSTOM_ADVANCE_START_MONTH_INDEX = 5; // June (0-based)
+
   const [activeType, setActiveType] = useState('household');
   const [value, setValue] = useState('');
   const [wasteSubtype, setWasteSubtype] = useState(WASTE_SUBTYPES[0].id);
@@ -43,6 +47,14 @@ export default function Dashboard() {
   const [showVacationForm, setShowVacationForm] = useState(false);
   const [editingReadingId, setEditingReadingId] = useState(null);
   const [editingForm, setEditingForm] = useState({ value: '', note: '', subtype: WASTE_SUBTYPES[0].id });
+  const [selectedCostTariffType, setSelectedCostTariffType] = useState('household');
+  const [costForm, setCostForm] = useState({
+    kwhPriceNet: '0.32',
+    monthlyAdvanceGross: '63',
+    basePriceMonthlyNet: '12',
+    additionalMonthlyCostsNet: '0',
+  });
+  const [costFormDirty, setCostFormDirty] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
   const rangeVariables = useMemo(() => getRangeVariables(selectedRange), [selectedRange]);
@@ -58,6 +70,8 @@ export default function Dashboard() {
   }, [anomalyIqrMultiplier, anomalyZScoreThreshold]);
 
   const isAIInsightsPage = activeType === 'ai-insights';
+  const isElectricityPricingPage = activeType === 'electricity-prices';
+  const dashboardQueryType = isElectricityPricingPage ? 'household' : activeType;
 
   // Hintergrund-Queries für Anomalie-Badges (immer aktiv)
   const badgeQueryOpts = { requestPolicy: 'cache-and-network' };
@@ -87,12 +101,25 @@ export default function Dashboard() {
   const [{ data, fetching, error }, reexecuteQuery] = useQuery({
     query: GET_DASHBOARD_DATA,
     variables: {
-      type: activeType,
+      type: dashboardQueryType,
       ...rangeVariables,
       ...normalizedAnomalyThresholds,
     },
     requestPolicy: 'network-only',
     pause: isAIInsightsPage,
+  });
+
+  const [{ data: pricingPreviewData }] = useQuery({
+    query: GET_DASHBOARD_DATA,
+    variables: {
+      type: selectedCostTariffType,
+      days: 30,
+      startDate: null,
+      endDate: null,
+      ...normalizedAnomalyThresholds,
+    },
+    requestPolicy: 'network-only',
+    pause: !isElectricityPricingPage,
   });
 
   const [addResult, addReading] = useMutation(ADD_READING);
@@ -101,13 +128,19 @@ export default function Dashboard() {
   const [deleteReadingResult, deleteReading] = useMutation(DELETE_READING);
   const [addVacationResult, addVacationPeriod] = useMutation(ADD_VACATION_PERIOD);
   const [deleteVacationResult, deleteVacationPeriod] = useMutation(DELETE_VACATION_PERIOD);
+  const [updateCostSettingsResult, updateEnergyCostSettings] = useMutation(UPDATE_ENERGY_COST_SETTINGS);
 
   const allReadings = data?.getReadings || [];
   const chartData = data?.getChartData || [];
   const wasteSummary = data?.getWasteSummary || [];
   const vacationPeriods = data?.getVacationPeriods || [];
+  const energyCostSettings = data?.getEnergyCostSettings;
   const isElectricityType = activeType === 'household' || activeType === 'heatpump';
+  const canConfigureElectricityPrices = isElectricityType || isElectricityPricingPage;
   const anomalyPointIds = data?.getDashboardInsights?.anomalyPointIds || [];
+  const activeTariffType = isElectricityType
+    ? (activeType === 'heatpump' ? 'heatpump' : 'household')
+    : selectedCostTariffType;
 
   const aiIsElectricityType = aiInsightType === 'household' || aiInsightType === 'heatpump';
 
@@ -170,6 +203,12 @@ export default function Dashboard() {
   }, [activeType, latestEntryUnit]);
 
   useEffect(() => {
+    if (activeType === 'household' || activeType === 'heatpump') {
+      setSelectedCostTariffType(activeType);
+    }
+  }, [activeType]);
+
+  useEffect(() => {
     if (selectedRange === '7d' || selectedRange === '30d') return;
 
     const isMonthRange = monthOptions.some((option) => option.id === selectedRange);
@@ -179,6 +218,75 @@ export default function Dashboard() {
       setSelectedRange('30d');
     }
   }, [monthOptions, yearOptions, selectedRange]);
+
+  useEffect(() => {
+    if (!energyCostSettings || costFormDirty || !canConfigureElectricityPrices) return;
+
+    const activeTariff = energyCostSettings[activeTariffType];
+    if (!activeTariff) return;
+
+    setCostForm({
+      kwhPriceNet: String(activeTariff.kwhPriceNet ?? 0.32),
+      monthlyAdvanceGross: String(activeTariff.monthlyAdvanceGross ?? 63),
+      basePriceMonthlyNet: String(activeTariff.basePriceMonthlyNet ?? 12),
+      additionalMonthlyCostsNet: String(activeTariff.additionalMonthlyCostsNet ?? 0),
+    });
+  }, [energyCostSettings, costFormDirty, activeTariffType, canConfigureElectricityPrices]);
+
+  const settlementProjection = useMemo(() => {
+    if (!canConfigureElectricityPrices) return null;
+
+    const sourceBreakdown = isElectricityPricingPage
+      ? pricingPreviewData?.getDashboardInsights?.electricityCost
+      : data?.getDashboardInsights?.electricityCost;
+
+    if (!sourceBreakdown) return null;
+
+    const periodDays = Math.max(1, Number(sourceBreakdown.periodDays || 30));
+    const estimatedMonthlyCostGross = (Number(sourceBreakdown.totalCostGross || 0) / periodDays) * 30;
+
+    const enteredAdvanceGross = Number(costForm.monthlyAdvanceGross);
+    const monthlyAdvanceGross = Number.isFinite(enteredAdvanceGross) && enteredAdvanceGross >= 0
+      ? enteredAdvanceGross
+      : LEGACY_MONTHLY_ADVANCE_GROSS;
+
+    const currentMonthIndex = new Date().getMonth();
+    const monthsElapsed = currentMonthIndex + 1;
+    const legacyMonths = Math.min(monthsElapsed, CUSTOM_ADVANCE_START_MONTH_INDEX);
+    const customMonths = Math.max(0, monthsElapsed - CUSTOM_ADVANCE_START_MONTH_INDEX);
+
+    const paidGross = (legacyMonths * LEGACY_MONTHLY_ADVANCE_GROSS) + (customMonths * monthlyAdvanceGross);
+    const expectedGross = estimatedMonthlyCostGross * monthsElapsed;
+    const balance = paidGross - expectedGross;
+
+    const monthsInYear = 12;
+    const yearEndLegacyMonths = Math.min(monthsInYear, CUSTOM_ADVANCE_START_MONTH_INDEX);
+    const yearEndCustomMonths = Math.max(0, monthsInYear - CUSTOM_ADVANCE_START_MONTH_INDEX);
+    const projectedYearEndPaidGross = (yearEndLegacyMonths * LEGACY_MONTHLY_ADVANCE_GROSS) + (yearEndCustomMonths * monthlyAdvanceGross);
+    const projectedYearEndExpectedGross = estimatedMonthlyCostGross * monthsInYear;
+    const projectedYearEndBalance = projectedYearEndPaidGross - projectedYearEndExpectedGross;
+
+    return {
+      estimatedMonthlyCostGross,
+      paidGross,
+      expectedGross,
+      balance,
+      monthsElapsed,
+      legacyMonths,
+      customMonths,
+      projectedYearEndPaidGross,
+      projectedYearEndExpectedGross,
+      projectedYearEndBalance,
+    };
+  }, [
+    canConfigureElectricityPrices,
+    isElectricityPricingPage,
+    pricingPreviewData,
+    data,
+    costForm.monthlyAdvanceGross,
+    LEGACY_MONTHLY_ADVANCE_GROSS,
+    CUSTOM_ADVANCE_START_MONTH_INDEX,
+  ]);
 
   const selectedRangeLabel = useMemo(() => getSelectedRangeLabel(selectedRange, monthOptions), [monthOptions, selectedRange]);
   const selectedRangeText = useMemo(() => getSelectedRangeText(selectedRange, monthOptions), [monthOptions, selectedRange]);
@@ -238,6 +346,54 @@ export default function Dashboard() {
     const result = await deleteVacationPeriod({ id });
     if (result.error) return;
     reexecuteQuery({ requestPolicy: 'network-only' });
+  };
+
+  const handleCostInputChange = (field, value) => {
+    setCostFormDirty(true);
+    setCostForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSaveCostSettings = async (e) => {
+    e.preventDefault();
+
+    const parsedKwhPriceNet = Number(costForm.kwhPriceNet);
+    const parsedMonthlyAdvanceGross = Number(costForm.monthlyAdvanceGross);
+    const parsedBasePriceMonthlyNet = Number(costForm.basePriceMonthlyNet);
+    const parsedAdditionalMonthlyCostsNet = Number(costForm.additionalMonthlyCostsNet);
+
+    const hasInvalidValue = [parsedKwhPriceNet, parsedMonthlyAdvanceGross, parsedBasePriceMonthlyNet, parsedAdditionalMonthlyCostsNet]
+      .some((val) => !Number.isFinite(val) || val < 0);
+
+    if (hasInvalidValue) {
+      setToast({ message: 'Bitte nur nicht-negative Zahlen eingeben.', type: 'error' });
+      return;
+    }
+
+    const result = await updateEnergyCostSettings({
+      type: activeTariffType,
+      kwhPriceNet: parsedKwhPriceNet,
+      monthlyAdvanceGross: parsedMonthlyAdvanceGross,
+      basePriceMonthlyNet: parsedBasePriceMonthlyNet,
+      additionalMonthlyCostsNet: parsedAdditionalMonthlyCostsNet,
+    });
+
+    if (result.error) {
+      setToast({ message: 'Kosten konnten nicht gespeichert werden.', type: 'error' });
+      return;
+    }
+
+    setCostFormDirty(false);
+    setToast({ message: 'Stromkosten gespeichert.', type: 'success' });
+    reexecuteQuery({ requestPolicy: 'network-only' });
+  };
+
+  const handleSelectCostTariffType = (type) => {
+    if (type !== 'household' && type !== 'heatpump') return;
+    setSelectedCostTariffType(type);
+    setCostFormDirty(false);
   };
 
   const handleStartEditReading = (reading) => {
@@ -544,10 +700,12 @@ export default function Dashboard() {
     const stats = getStatsViewModel(activeType, insights, wasteSummary, selectedRangeText, chartData);
     if (!stats) return null;
 
-    const statCards = [stats.primary, stats.secondary, stats.tertiary].filter(Boolean);
-    const gridClass = statCards.length >= 3
-      ? 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'
-      : 'grid grid-cols-1 md:grid-cols-2 gap-4 mb-6';
+    const statCards = [stats.primary, stats.secondary, stats.tertiary, stats.quaternary].filter(Boolean);
+    const gridClass = statCards.length >= 4
+      ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6'
+      : statCards.length >= 3
+        ? 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'
+        : 'grid grid-cols-1 md:grid-cols-2 gap-4 mb-6';
 
     const cardStyles = [
       'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-blue-700 dark:text-blue-300',
@@ -573,6 +731,180 @@ export default function Dashboard() {
       </div>
     );
   };
+
+  const renderElectricityCostSettings = () => {
+    if (!canConfigureElectricityPrices) return null;
+
+    const costBreakdown = isElectricityPricingPage
+      ? pricingPreviewData?.getDashboardInsights?.electricityCost
+      : data?.getDashboardInsights?.electricityCost;
+    const currency = costBreakdown?.currency || energyCostSettings?.currency || 'EUR';
+    const vatRate = Number(energyCostSettings?.vatRate ?? costBreakdown?.vatRate ?? 0.19);
+    const vatPercent = (vatRate * 100).toFixed(0);
+    const balance = Number(settlementProjection?.balance || 0);
+    const hasCredit = balance > 0;
+    const hasDebt = balance < 0;
+    const yearEndBalance = Number(settlementProjection?.projectedYearEndBalance || 0);
+    const hasYearEndCredit = yearEndBalance > 0;
+    const hasYearEndDebt = yearEndBalance < 0;
+
+    return (
+      <section className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col gap-1 mb-4">
+          <h2 className="text-xl font-semibold text-emerald-700 dark:text-emerald-300">Strompreise</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Eigener Tarifbereich je Stromart, alle Eingaben netto.</p>
+        </div>
+
+        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">
+          Stromkosten konfigurieren ({activeTariffType === 'household' ? 'Haushaltsstrom' : 'Wärmepumpe'})
+        </h3>
+
+        <form onSubmit={handleSaveCostSettings} className="space-y-3">
+          <label className="block text-xs text-gray-500 dark:text-gray-400">
+            Preis pro kWh netto ({currency})
+            <input
+              type="number"
+              min="0"
+              step="0.0001"
+              value={costForm.kwhPriceNet}
+              onChange={(e) => handleCostInputChange('kwhPriceNet', e.target.value)}
+              className="mt-1 w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+            />
+          </label>
+
+          <label className="block text-xs text-gray-500 dark:text-gray-400">
+            Monatlicher Abschlag brutto ({currency})
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={costForm.monthlyAdvanceGross}
+              onChange={(e) => handleCostInputChange('monthlyAdvanceGross', e.target.value)}
+              className="mt-1 w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+            />
+          </label>
+
+          <label className="block text-xs text-gray-500 dark:text-gray-400">
+            Grundpreis pro Monat netto ({currency})
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={costForm.basePriceMonthlyNet}
+              onChange={(e) => handleCostInputChange('basePriceMonthlyNet', e.target.value)}
+              className="mt-1 w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+            />
+          </label>
+
+          <label className="block text-xs text-gray-500 dark:text-gray-400">
+            Weitere monatliche Kosten netto ({currency})
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={costForm.additionalMonthlyCostsNet}
+              onChange={(e) => handleCostInputChange('additionalMonthlyCostsNet', e.target.value)}
+              className="mt-1 w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+            />
+          </label>
+
+          <button
+            type="submit"
+            disabled={updateCostSettingsResult.fetching}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition-all disabled:opacity-50"
+          >
+            {updateCostSettingsResult.fetching ? 'Speichert...' : 'Kosten speichern'}
+          </button>
+        </form>
+
+        {isElectricityType && costBreakdown ? (
+          <div className="mt-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 px-3 py-3 text-xs text-emerald-900 dark:text-emerald-100 space-y-1">
+            <p>Variable Kosten netto: {Number(costBreakdown.variableCostNet || 0).toFixed(2)} {currency}</p>
+            <p>Fixkosten netto (anteilig): {Number(costBreakdown.fixedCostNet || 0).toFixed(2)} {currency}</p>
+            <p>Umsatzsteuer ({vatPercent}%): {Number(costBreakdown.vatAmount || 0).toFixed(2)} {currency}</p>
+            <p className="font-semibold">Gesamt brutto: {Number(costBreakdown.totalCostGross || 0).toFixed(2)} {currency}</p>
+            <p>Zeitraum: {Number(costBreakdown.periodDays || 0)} Tage</p>
+          </div>
+        ) : isElectricityPricingPage ? (
+          <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+            <p>Die Prognose basiert auf den letzten 30 Tagen des gewählten Tarifs.</p>
+            <p>Annahme für Abschläge: Januar bis Mai jeweils 63,00 {currency}, ab Juni der eingetragene Abschlag.</p>
+          </div>
+        ) : null}
+
+        {isElectricityPricingPage && settlementProjection ? (
+          <div className="mt-4 rounded-xl border px-3 py-3 text-xs space-y-1 bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 text-blue-900 dark:text-blue-100">
+            <p className="font-semibold">Prognose seit Jahresbeginn</p>
+            <p>Monatliche Kostenprognose brutto: {Number(settlementProjection.estimatedMonthlyCostGross || 0).toFixed(2)} {currency}</p>
+            <p>Bisher gezahlte Abschläge ({settlementProjection.monthsElapsed} Monate): {Number(settlementProjection.paidGross || 0).toFixed(2)} {currency}</p>
+            <p>Erwartete Kosten seit Jahresbeginn: {Number(settlementProjection.expectedGross || 0).toFixed(2)} {currency}</p>
+            {hasCredit ? (
+              <p className="font-semibold text-emerald-700 dark:text-emerald-300">Voraussichtliche Gutschrift: {Math.abs(balance).toFixed(2)} {currency}</p>
+            ) : null}
+            {hasDebt ? (
+              <p className="font-semibold text-red-700 dark:text-red-300">Voraussichtliche Nachzahlung: {Math.abs(balance).toFixed(2)} {currency}</p>
+            ) : null}
+            {!hasCredit && !hasDebt ? (
+              <p className="font-semibold">Voraussichtlich ausgeglichen.</p>
+            ) : null}
+
+            <div className="pt-2 mt-2 border-t border-blue-200 dark:border-blue-800 space-y-1">
+              <p className="font-semibold">Hochrechnung bis Jahresende</p>
+              <p>Geplante Abschläge gesamt: {Number(settlementProjection.projectedYearEndPaidGross || 0).toFixed(2)} {currency}</p>
+              <p>Erwartete Jahreskosten gesamt: {Number(settlementProjection.projectedYearEndExpectedGross || 0).toFixed(2)} {currency}</p>
+              {hasYearEndCredit ? (
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300">Voraussichtliche Gutschrift zum Jahresende: {Math.abs(yearEndBalance).toFixed(2)} {currency}</p>
+              ) : null}
+              {hasYearEndDebt ? (
+                <p className="font-semibold text-red-700 dark:text-red-300">Voraussichtliche Nachzahlung zum Jahresende: {Math.abs(yearEndBalance).toFixed(2)} {currency}</p>
+              ) : null}
+              {!hasYearEndCredit && !hasYearEndDebt ? (
+                <p className="font-semibold">Zum Jahresende voraussichtlich ausgeglichen.</p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </section>
+    );
+  };
+
+  const renderElectricityPricesPage = () => (
+    <div className="space-y-6">
+      <section className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <h2 className="text-xl font-semibold mb-2 text-emerald-700 dark:text-emerald-300">Strompreise</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Verwalten Sie die Tarifwerte getrennt für Haushaltsstrom und Wärmepumpe. Alle Eingaben sind netto.
+        </p>
+
+        <div className="flex flex-wrap gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => handleSelectCostTariffType('household')}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              activeTariffType === 'household'
+                ? 'bg-emerald-600 text-white shadow'
+                : 'bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            Haushaltsstrom
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectCostTariffType('heatpump')}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              activeTariffType === 'heatpump'
+                ? 'bg-emerald-600 text-white shadow'
+                : 'bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            Wärmepumpe
+          </button>
+        </div>
+      </section>
+
+      {renderElectricityCostSettings()}
+    </div>
+  );
 
   const renderInsight = () => {
     if (activeType === 'waste') {
@@ -728,9 +1060,7 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-4xl mx-auto space-y-8">
-        {isAIInsightsPage ? (
-          renderAIInsightsPage()
-        ) : (
+        {isAIInsightsPage ? renderAIInsightsPage() : isElectricityPricingPage ? renderElectricityPricesPage() : (
           <>
             {renderStats()}
 

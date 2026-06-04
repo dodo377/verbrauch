@@ -1,6 +1,7 @@
 export const TYPES = [
   { id: 'household', label: 'Haushaltsstrom', icon: '⚡' },
   { id: 'heatpump', label: 'Wärmepumpe', icon: '🌡️' },
+  { id: 'electricity-prices', label: 'Strompreise', icon: '💶' },
   { id: 'water', label: 'Wasser', icon: '💧' },
   { id: 'temperature', label: 'Außentemperatur', icon: '❄️' },
   { id: 'waste', label: 'Müll', icon: '🗑️' },
@@ -203,6 +204,9 @@ export function getStatsViewModel(activeType, insights, wasteSummary, selectedRa
 
   const isWater = activeType === 'water';
 
+  const electricityCost = insights?.electricityCost;
+  const hasElectricityCost = (activeType === 'household' || activeType === 'heatpump') && electricityCost;
+
   return {
     primary: {
       label: `${isWater ? 'Ø Wochenverbrauch' : 'Ø Tagesverbrauch'} (${selectedRangeText})`,
@@ -214,11 +218,24 @@ export function getStatsViewModel(activeType, insights, wasteSummary, selectedRa
       value: Number(insights.total || 0).toFixed(2),
       unit: isWater ? 'm³' : 'kWh',
     },
-    tertiary: {
-      label: isWater ? 'Letzte Ablesung' : 'Verbrauch heute',
-      value: isWater ? lastWaterValue : todayValue,
-      unit: isWater ? 'm³' : 'kWh',
-    },
+    tertiary: hasElectricityCost
+      ? {
+          label: 'Stromkosten im Zeitraum (brutto)',
+          value: Number(electricityCost.totalCostGross || 0).toFixed(2),
+          unit: 'EUR',
+        }
+      : {
+          label: isWater ? 'Letzte Ablesung' : 'Verbrauch heute',
+          value: isWater ? lastWaterValue : todayValue,
+          unit: isWater ? 'm³' : 'kWh',
+        },
+    quaternary: hasElectricityCost
+      ? {
+          label: 'Verbrauch heute',
+          value: todayValue,
+          unit: 'kWh',
+        }
+      : null,
   };
 }
 

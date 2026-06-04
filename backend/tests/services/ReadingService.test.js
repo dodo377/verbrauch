@@ -116,7 +116,8 @@ describe('ReadingService', () => {
       ]);
 
       const chartData = await ReadingService.getChartData(mockUser._id.toString(), 'temperature', {
-        days: 7,
+        startDate: String(new Date('2026-04-01T00:00:00.000Z').getTime()),
+        endDate: String(new Date('2026-04-30T23:59:59.999Z').getTime()),
       });
 
       expect(chartData).toHaveLength(2);
@@ -308,7 +309,8 @@ describe('ReadingService', () => {
       ]);
 
       const summary = await ReadingService.getWasteSummary(mockUser._id.toString(), {
-        days: 30,
+        startDate: String(new Date('2026-04-01T00:00:00.000Z').getTime()),
+        endDate: String(new Date('2026-04-30T23:59:59.999Z').getTime()),
       });
 
       expect(summary).toEqual(expect.arrayContaining([

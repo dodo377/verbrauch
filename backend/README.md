@@ -66,7 +66,7 @@ npm test
 Aktueller Stand:
 
 - 4 Test-Suites
-- 32 Tests
+- 35 Tests
 
 ### Testumfang
 
@@ -105,6 +105,9 @@ npx jest tests/services/AuthService.test.js
 - Chartdaten-Aufbereitung inkl. Urlaubssensitivität
 - Waste-Summary
 - AI-Insights (Trend, Anomalien)
+- Energiekosten-Konfiguration pro Stromtarif (`household`, `heatpump`)
+- Persistenz von Strompreiswerten inkl. `monthlyAdvanceGross` (brutto)
+- Kosten-Breakdown mit Netto/Brutto und 19 % Umsatzsteuer
 - Vacation-Period Verwaltung
 - JWT Auth + Login-Lockout
 
@@ -114,3 +117,12 @@ npx jest tests/services/AuthService.test.js
 - `src/services` → Geschäftslogik
 - `src/resolvers` → GraphQL-Orchestrierung
 - `src/schema` → API-Verträge
+
+## Energiekosten-API (GraphQL)
+
+- `getEnergyCostSettings`: liefert Tarifwerte für Haushaltsstrom und Wärmepumpe
+- `updateEnergyCostSettings`: aktualisiert je Tarif
+	- `kwhPriceNet`
+	- `basePriceMonthlyNet`
+	- `additionalMonthlyCostsNet`
+	- `monthlyAdvanceGross`

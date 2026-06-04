@@ -14,6 +14,11 @@ export const typeDefs = gql`
     waste
   }
 
+  enum ElectricityTariffType {
+    household
+    heatpump
+  }
+
   # --- TYPES ---
   type User {
     id: ID!
@@ -46,6 +51,7 @@ export const typeDefs = gql`
     getChartData(type: ReadingType!, days: Int, startDate: String, endDate: String): [ChartDataPoint!]!
     getDashboardInsights(type: ReadingType!, days: Int, startDate: String, endDate: String, anomalyIqrMultiplier: Float, anomalyZScoreThreshold: Float): DashboardInsights!
     getWasteSummary(days: Int, startDate: String, endDate: String): [WasteSummaryItem!]!
+    getEnergyCostSettings: EnergyCostSettings!
     getVacationPeriods: [VacationPeriod!]!
   }
 
@@ -58,6 +64,7 @@ export const typeDefs = gql`
     addReading(type: ReadingType!, value: Float!, note: String, subtype: String, timestamp: String): Reading!
     updateReading(id: ID!, value: Float, note: String, subtype: String, timestamp: String): Reading!
     updateReadingNote(id: ID!, note: String!): Reading!
+    updateEnergyCostSettings(type: ElectricityTariffType!, kwhPriceNet: Float!, monthlyAdvanceGross: Float!, basePriceMonthlyNet: Float!, additionalMonthlyCostsNet: Float!): EnergyCostSettings!
     addVacationPeriod(startDate: String!, endDate: String!, note: String): VacationPeriod!
     deleteVacationPeriod(id: ID!): Boolean!
     
@@ -84,6 +91,7 @@ export const typeDefs = gql`
       total: Float!
       min: Float!
       max: Float!
+      electricityCost: ElectricityCostBreakdown
       trend: String!
       anomalyCount: Int!
       anomalySeverity: String!
@@ -104,5 +112,37 @@ export const typeDefs = gql`
       subtype: String!
       count: Int!
       lastDate: String
+    }
+
+    type EnergyTariffSettings {
+      kwhPriceNet: Float!
+      kwhPriceGross: Float!
+      monthlyAdvanceGross: Float!
+      basePriceMonthlyNet: Float!
+      basePriceMonthlyGross: Float!
+      additionalMonthlyCostsNet: Float!
+      additionalMonthlyCostsGross: Float!
+    }
+
+    type EnergyCostSettings {
+      household: EnergyTariffSettings!
+      heatpump: EnergyTariffSettings!
+      currency: String!
+      vatRate: Float!
+    }
+
+    type ElectricityCostBreakdown {
+      variableCostNet: Float!
+      fixedCostNet: Float!
+      totalCostNet: Float!
+      vatAmount: Float!
+      totalCostGross: Float!
+      periodDays: Int!
+      kwhPriceNet: Float!
+      kwhPriceGross: Float!
+      effectiveKwhPriceNet: Float!
+      effectiveKwhPriceGross: Float!
+      vatRate: Float!
+      currency: String!
     }
 `;

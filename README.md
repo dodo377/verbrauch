@@ -175,6 +175,7 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 - Statistik-Kacheln je Datentyp inkl. zusätzlichem "Heute"-Wert (Wasser: 7-Tage-Wert)
 - Diagramme mit `Recharts`
 - eigene Seite **AI Insights** als zusätzlicher Menüpunkt in der ersten Zeile (nach „Müll“)
+- eigene Seite **Strompreise** als zusätzlicher Menüpunkt in der ersten Zeile
 - AI-Insights mit Trend- und Anomalie-Erkennung pro Datentyp
 - konfigurierbare Schwellenwerte für Anomalie-Erkennung (IQR + Z-Score) auf der AI-Insights-Seite
 - Badge am oberen **AI Insights**-Button, wenn Auffälligkeiten vorliegen
@@ -182,6 +183,11 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 - klickbare Strom-Auffälligkeiten mit Bemerkungsfunktion
 - Dokumentation von Müll-Rausstellungen nach Art und Häufigkeit
 - Urlaub im Frontend eintragen/löschen (Start/Ende + optionale Notiz, Formular per Klick einblendbar)
+- getrennte Stromtarife für Haushaltsstrom und Wärmepumpe (netto-Eingaben, brutto-Auswertung mit 19 % USt)
+- monatlicher Abschlag (brutto) je Tarif konfigurierbar
+- automatische Prognose im Strompreise-Tab: Nachzahlung oder Gutschrift seit Jahresbeginn
+- zusätzliche Hochrechnung bis Jahresende
+- Abschlagslogik in der Prognose: Januar bis Mai fix 63,00 EUR pro Monat, ab Juni der eingetragene Abschlag
 
 ## Tech Stack
 
@@ -223,6 +229,7 @@ verbrauch_new/
 │       └── services/
 │           ├── AuthService.js    # Registrierung, Login, Lockout, JWT-Verify
 │           ├── DashboardInsightsService.js
+│           ├── EnergyCostService.js
 │           └── ReadingService.js
 ├── frontend/
 │   ├── README.md            # Frontend-spezifische Start-/Build-Doku

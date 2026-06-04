@@ -7,6 +7,12 @@ React + Vite Frontend für das Verbrauchs-Dashboard.
 - Zeitraumfilter: 7 Tage, 30 Tage, Monat, Jahr
 - Statistik-Kacheln inkl. aktuellem Periodenwert
 - Eigene Seite „AI Insights" als zusätzlicher Button in der oberen Typ-Navigation
+- Eigene Seite „Strompreise" mit Tarif-Umschalter für Haushaltsstrom und Wärmepumpe
+- Netto-Eingaben für Strompreis-Konfiguration mit brutto-basierter Ergebnisanzeige
+- Eingabe eines monatlichen Abschlags (brutto) je Tarif
+- Prognose im Strompreise-Tab: voraussichtliche Nachzahlung oder Gutschrift seit Jahresbeginn
+- Zusätzliche Hochrechnung bis Jahresende
+- Verwendete Abschlagsregel: Januar bis Mai 63,00 EUR monatlich, ab Juni der eingetragene Abschlag
 - Typ-Tabs auf der AI-Insights-Seite (Haushaltsstrom, Wärmepumpe, Wasser, Temperatur)
 - Konfigurierbare Anomalie-Schwellen (IQR + Z-Score) direkt auf der AI-Insights-Seite
 - Badge in der ersten Zeile nur auf „AI Insights", wenn Auffälligkeiten vorhanden sind

@@ -1,6 +1,7 @@
 import { ReadingService } from '../services/ReadingService.js';
 import { AuthService } from '../services/AuthService.js';
 import { DashboardInsightsService } from '../services/DashboardInsightsService.js';
+import { EnergyCostService } from '../services/EnergyCostService.js';
 import { User } from '../models/User.js';
 import { requireAuth } from './requireAuth.js';
 
@@ -26,10 +27,22 @@ export const resolvers = {
 
       const range = { days, startDate, endDate };
       const chartData = await ReadingService.getChartData(user.id, type, range);
-      return DashboardInsightsService.build(type, chartData, range, {
+      const insights = DashboardInsightsService.build(type, chartData, range, {
         anomalyIqrMultiplier,
         anomalyZScoreThreshold,
       });
+
+      if (!EnergyCostService.isElectricityType(type)) {
+        return insights;
+      }
+
+      const settings = await EnergyCostService.getSettingsForUser(user.id);
+      const electricityCost = EnergyCostService.buildCostBreakdown(type, insights.total, range, settings);
+
+      return {
+        ...insights,
+        electricityCost,
+      };
     },
     getWasteSummary: async (_, { days, startDate, endDate }, context) => {
       const user = requireAuth(context);
@@ -38,6 +51,10 @@ export const resolvers = {
     getVacationPeriods: async (_, __, context) => {
       const user = requireAuth(context);
       return await ReadingService.getVacationPeriods(user.id);
+    },
+    getEnergyCostSettings: async (_, __, context) => {
+      const user = requireAuth(context);
+      return EnergyCostService.getSettingsForUser(user.id);
     },
     getLatestReading: () => null,
   },
@@ -59,6 +76,15 @@ export const resolvers = {
       const user = requireAuth(context, 'Nicht autorisiert. Bitte logge dich zuerst ein.');
 
       return await ReadingService.updateReadingNote(user.id, id, note);
+    },
+    updateEnergyCostSettings: async (_, { type, kwhPriceNet, monthlyAdvanceGross, basePriceMonthlyNet, additionalMonthlyCostsNet }, context) => {
+      const user = requireAuth(context, 'Nicht autorisiert. Bitte logge dich zuerst ein.');
+      return EnergyCostService.updateSettingsForUser(user.id, type, {
+        kwhPriceNet,
+        monthlyAdvanceGross,
+        basePriceMonthlyNet,
+        additionalMonthlyCostsNet,
+      });
     },
     updateReading: async (_, { id, value, note, subtype, timestamp }, context) => {
       const user = requireAuth(context, 'Nicht autorisiert. Bitte logge dich zuerst ein.');

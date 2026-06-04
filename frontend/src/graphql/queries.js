@@ -32,6 +32,20 @@ export const GET_DASHBOARD_DATA = gql`
       total
       min
       max
+      electricityCost {
+        variableCostNet
+        fixedCostNet
+        totalCostNet
+        vatAmount
+        totalCostGross
+        periodDays
+        kwhPriceNet
+        kwhPriceGross
+        effectiveKwhPriceNet
+        effectiveKwhPriceGross
+        vatRate
+        currency
+      }
       trend
       anomalyCount
       anomalySeverity
@@ -55,6 +69,28 @@ export const GET_DASHBOARD_DATA = gql`
       startDate
       endDate
       note
+    }
+    getEnergyCostSettings {
+      household {
+        kwhPriceNet
+        kwhPriceGross
+        monthlyAdvanceGross
+        basePriceMonthlyNet
+        basePriceMonthlyGross
+        additionalMonthlyCostsNet
+        additionalMonthlyCostsGross
+      }
+      heatpump {
+        kwhPriceNet
+        kwhPriceGross
+        monthlyAdvanceGross
+        basePriceMonthlyNet
+        basePriceMonthlyGross
+        additionalMonthlyCostsNet
+        additionalMonthlyCostsGross
+      }
+      currency
+      vatRate
     }
   }
 `;

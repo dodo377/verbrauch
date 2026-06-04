@@ -69,3 +69,30 @@ export const DELETE_VACATION_PERIOD = gql`
     deleteVacationPeriod(id: $id)
   }
 `;
+
+export const UPDATE_ENERGY_COST_SETTINGS = gql`
+  mutation UpdateEnergyCostSettings($type: ElectricityTariffType!, $kwhPriceNet: Float!, $monthlyAdvanceGross: Float!, $basePriceMonthlyNet: Float!, $additionalMonthlyCostsNet: Float!) {
+    updateEnergyCostSettings(
+      type: $type
+      kwhPriceNet: $kwhPriceNet
+      monthlyAdvanceGross: $monthlyAdvanceGross
+      basePriceMonthlyNet: $basePriceMonthlyNet
+      additionalMonthlyCostsNet: $additionalMonthlyCostsNet
+    ) {
+      household {
+        kwhPriceNet
+        monthlyAdvanceGross
+        basePriceMonthlyNet
+        additionalMonthlyCostsNet
+      }
+      heatpump {
+        kwhPriceNet
+        monthlyAdvanceGross
+        basePriceMonthlyNet
+        additionalMonthlyCostsNet
+      }
+      currency
+      vatRate
+    }
+  }
+`;
