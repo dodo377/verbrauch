@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from 'urql';
-import { GET_DASHBOARD_DATA } from '../graphql/queries.js';
+import { GET_ALL_READINGS, GET_DASHBOARD_DATA } from '../graphql/queries.js';
 import {
   ADD_READING,
   UPDATE_READING_NOTE,
@@ -28,12 +28,18 @@ import {
   getDisplayUnit,
 } from '../lib/dashboardPresentation.js';
 
+function toDateInputValue(date = new Date()) {
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 10);
+}
+
 export default function Dashboard() {
   const LEGACY_MONTHLY_ADVANCE_GROSS = 63;
   const CUSTOM_ADVANCE_START_MONTH_INDEX = 5; // June (0-based)
 
   const [activeType, setActiveType] = useState('household');
   const [value, setValue] = useState('');
+  const [entryDate, setEntryDate] = useState(() => toDateInputValue());
   const [wasteSubtype, setWasteSubtype] = useState(WASTE_SUBTYPES[0].id);
   const [selectedRange, setSelectedRange] = useState('30d');
   const [selectedAnomaly, setSelectedAnomaly] = useState(null);
@@ -46,7 +52,12 @@ export default function Dashboard() {
   const [vacationNote, setVacationNote] = useState('');
   const [showVacationForm, setShowVacationForm] = useState(false);
   const [editingReadingId, setEditingReadingId] = useState(null);
-  const [editingForm, setEditingForm] = useState({ value: '', note: '', subtype: WASTE_SUBTYPES[0].id });
+  const [editingForm, setEditingForm] = useState({
+    value: '',
+    note: '',
+    subtype: WASTE_SUBTYPES[0].id,
+    timestamp: toDateInputValue(),
+  });
   const [selectedCostTariffType, setSelectedCostTariffType] = useState('household');
   const [costForm, setCostForm] = useState({
     kwhPriceNet: '0.32',
@@ -56,6 +67,18 @@ export default function Dashboard() {
   });
   const [costFormDirty, setCostFormDirty] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'success' });
+  const [tableFilterType, setTableFilterType] = useState('all');
+  const [tableFilterFromDate, setTableFilterFromDate] = useState('');
+  const [tableFilterToDate, setTableFilterToDate] = useState('');
+  const [tableSearch, setTableSearch] = useState('');
+  const [tableSortDirection, setTableSortDirection] = useState('desc');
+  const [tableEditingId, setTableEditingId] = useState(null);
+  const [tableEditingForm, setTableEditingForm] = useState({
+    value: '',
+    note: '',
+    subtype: WASTE_SUBTYPES[0].id,
+    timestamp: toDateInputValue(),
+  });
 
   const rangeVariables = useMemo(() => getRangeVariables(selectedRange), [selectedRange]);
 
@@ -71,7 +94,8 @@ export default function Dashboard() {
 
   const isAIInsightsPage = activeType === 'ai-insights';
   const isElectricityPricingPage = activeType === 'electricity-prices';
-  const dashboardQueryType = isElectricityPricingPage ? 'household' : activeType;
+  const isDataTablePage = activeType === 'data-table';
+  const dashboardQueryType = (isElectricityPricingPage || isDataTablePage) ? 'household' : activeType;
 
   // Hintergrund-Queries für Anomalie-Badges (immer aktiv)
   const badgeQueryOpts = { requestPolicy: 'cache-and-network' };
@@ -106,7 +130,14 @@ export default function Dashboard() {
       ...normalizedAnomalyThresholds,
     },
     requestPolicy: 'network-only',
-    pause: isAIInsightsPage,
+    pause: isAIInsightsPage || isDataTablePage,
+  });
+
+  const [{ data: tableData, fetching: tableFetching }, reexecuteTableQuery] = useQuery({
+    query: GET_ALL_READINGS,
+    variables: { limit: 2000 },
+    requestPolicy: 'network-only',
+    pause: !isDataTablePage,
   });
 
   const [{ data: pricingPreviewData }] = useQuery({
@@ -294,11 +325,16 @@ export default function Dashboard() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const timestamp = entryDate
+      ? new Date(`${entryDate}T12:00:00`).toISOString()
+      : null;
+
     if (activeType === 'waste') {
-      await addReading({ type: 'waste', value: 1, subtype: wasteSubtype });
+      await addReading({ type: 'waste', value: 1, subtype: wasteSubtype, timestamp });
     } else {
       if (!value) return;
-      await addReading({ type: activeType, value: parseFloat(value) });
+      await addReading({ type: activeType, value: parseFloat(value), timestamp });
       setValue('');
     }
     reexecuteQuery({ requestPolicy: 'network-only' });
@@ -402,18 +438,34 @@ export default function Dashboard() {
       value: activeType === 'waste' ? '' : String(reading.value ?? ''),
       note: reading.note || '',
       subtype: reading.subtype || WASTE_SUBTYPES[0].id,
+      timestamp: toDateInputValue(new Date(Number(reading.timestamp))),
     });
   };
 
   const handleCancelEditReading = () => {
     setEditingReadingId(null);
-    setEditingForm({ value: '', note: '', subtype: WASTE_SUBTYPES[0].id });
+    setEditingForm({
+      value: '',
+      note: '',
+      subtype: WASTE_SUBTYPES[0].id,
+      timestamp: toDateInputValue(),
+    });
   };
 
   const handleSaveReading = async (id) => {
+    const parsedTimestamp = editingForm.timestamp
+      ? new Date(`${editingForm.timestamp}T12:00:00`)
+      : null;
+
+    if (!parsedTimestamp || Number.isNaN(parsedTimestamp.getTime())) {
+      setToast({ message: 'Ungültiges Datum', type: 'error' });
+      return;
+    }
+
     const variables = {
       id,
       note: editingForm.note.trim() || null,
+      timestamp: parsedTimestamp.toISOString(),
     };
 
     if (activeType === 'waste') {
@@ -452,6 +504,66 @@ export default function Dashboard() {
     if (editingReadingId === id) {
       handleCancelEditReading();
     }
+    reexecuteQuery({ requestPolicy: 'network-only' });
+    reexecuteTableQuery({ requestPolicy: 'network-only' });
+  };
+
+  const handleStartTableEdit = (reading) => {
+    setTableEditingId(reading.id);
+    setTableEditingForm({
+      value: String(reading.value ?? ''),
+      note: reading.note || '',
+      subtype: reading.subtype || WASTE_SUBTYPES[0].id,
+      timestamp: toDateInputValue(new Date(Number(reading.timestamp))),
+    });
+  };
+
+  const handleCancelTableEdit = () => {
+    setTableEditingId(null);
+    setTableEditingForm({
+      value: '',
+      note: '',
+      subtype: WASTE_SUBTYPES[0].id,
+      timestamp: toDateInputValue(),
+    });
+  };
+
+  const handleSaveTableReading = async (reading) => {
+    const parsedTimestamp = tableEditingForm.timestamp
+      ? new Date(`${tableEditingForm.timestamp}T12:00:00`)
+      : null;
+
+    if (!parsedTimestamp || Number.isNaN(parsedTimestamp.getTime())) {
+      setToast({ message: 'Ungültiges Datum', type: 'error' });
+      return;
+    }
+
+    const variables = {
+      id: reading.id,
+      note: tableEditingForm.note.trim() || null,
+      timestamp: parsedTimestamp.toISOString(),
+    };
+
+    if (reading.type === 'waste') {
+      variables.subtype = tableEditingForm.subtype;
+    } else {
+      const parsedValue = Number(tableEditingForm.value);
+      if (!Number.isFinite(parsedValue)) {
+        setToast({ message: 'Ungültiger Wert', type: 'error' });
+        return;
+      }
+      variables.value = parsedValue;
+    }
+
+    const result = await updateReading(variables);
+    if (result.error) {
+      setToast({ message: 'Fehler beim Speichern', type: 'error' });
+      return;
+    }
+
+    setToast({ message: 'Eintrag aktualisiert', type: 'success' });
+    handleCancelTableEdit();
+    reexecuteTableQuery({ requestPolicy: 'network-only' });
     reexecuteQuery({ requestPolicy: 'network-only' });
   };
 
@@ -906,6 +1018,231 @@ export default function Dashboard() {
     </div>
   );
 
+  const renderDataTablePage = () => {
+    const records = tableData?.getReadings || [];
+    const filteredRecords = records
+      .filter((reading) => {
+        if (tableFilterType !== 'all' && reading.type !== tableFilterType) return false;
+
+        const readingDate = new Date(Number(reading.timestamp));
+        if (tableFilterFromDate) {
+          const fromDate = new Date(`${tableFilterFromDate}T00:00:00`);
+          if (readingDate < fromDate) return false;
+        }
+        if (tableFilterToDate) {
+          const toDate = new Date(`${tableFilterToDate}T23:59:59`);
+          if (readingDate > toDate) return false;
+        }
+
+        if (!tableSearch.trim()) return true;
+
+        const search = tableSearch.trim().toLowerCase();
+        const haystack = [
+          reading.type,
+          String(reading.value ?? ''),
+          reading.note || '',
+          reading.subtype || '',
+        ].join(' ').toLowerCase();
+
+        return haystack.includes(search);
+      })
+      .sort((a, b) => {
+        const left = Number(a.timestamp);
+        const right = Number(b.timestamp);
+        return tableSortDirection === 'asc' ? left - right : right - left;
+      });
+
+    const typeLabelMap = {
+      household: 'Haushaltsstrom',
+      heatpump: 'Wärmepumpe',
+      water: 'Wasser',
+      temperature: 'Außentemperatur',
+      waste: 'Müll',
+    };
+
+    return (
+      <section className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <h2 className="text-xl font-semibold mb-4 text-blue-600">Tabellarische Datenübersicht</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+          <select
+            value={tableFilterType}
+            onChange={(e) => setTableFilterType(e.target.value)}
+            className="p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+          >
+            <option value="all">Alle Typen</option>
+            <option value="household">Haushaltsstrom</option>
+            <option value="heatpump">Wärmepumpe</option>
+            <option value="water">Wasser</option>
+            <option value="temperature">Außentemperatur</option>
+            <option value="waste">Müll</option>
+          </select>
+          <input
+            type="date"
+            value={tableFilterFromDate}
+            onChange={(e) => setTableFilterFromDate(e.target.value)}
+            className="p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+            aria-label="Von-Datum"
+          />
+          <input
+            type="date"
+            value={tableFilterToDate}
+            onChange={(e) => setTableFilterToDate(e.target.value)}
+            className="p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+            aria-label="Bis-Datum"
+          />
+          <input
+            type="text"
+            value={tableSearch}
+            onChange={(e) => setTableSearch(e.target.value)}
+            className="p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+            placeholder="Suche (Notiz/Wert/Subtype)"
+          />
+          <select
+            value={tableSortDirection}
+            onChange={(e) => setTableSortDirection(e.target.value)}
+            className="p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm"
+          >
+            <option value="desc">Neu nach Alt</option>
+            <option value="asc">Alt nach Neu</option>
+          </select>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left border-b border-gray-200 dark:border-gray-700">
+                <th className="py-2 pr-3">Datum</th>
+                <th className="py-2 pr-3">Typ</th>
+                <th className="py-2 pr-3">Wert</th>
+                <th className="py-2 pr-3">Subtype</th>
+                <th className="py-2 pr-3">Notiz</th>
+                <th className="py-2 pr-3">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableFetching ? (
+                <tr>
+                  <td className="py-3" colSpan={6}>Lade Einträge…</td>
+                </tr>
+              ) : filteredRecords.length === 0 ? (
+                <tr>
+                  <td className="py-3 text-gray-400" colSpan={6}>Keine Daten für die aktuelle Filterung.</td>
+                </tr>
+              ) : filteredRecords.map((reading) => {
+                const isEditing = tableEditingId === reading.id;
+                const isWaste = reading.type === 'waste';
+
+                return (
+                  <tr key={reading.id} className="border-b border-gray-100 dark:border-gray-700 align-top">
+                    <td className="py-2 pr-3">
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          value={tableEditingForm.timestamp}
+                          onChange={(e) => setTableEditingForm((prev) => ({ ...prev, timestamp: e.target.value }))}
+                          className="p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg"
+                        />
+                      ) : (
+                        new Date(Number(reading.timestamp)).toLocaleDateString('de-DE')
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">{typeLabelMap[reading.type] || reading.type}</td>
+                    <td className="py-2 pr-3">
+                      {isWaste ? (
+                        <span>1</span>
+                      ) : isEditing ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={tableEditingForm.value}
+                          onChange={(e) => setTableEditingForm((prev) => ({ ...prev, value: e.target.value }))}
+                          className="w-28 p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg"
+                        />
+                      ) : (
+                        Number(reading.value).toLocaleString('de-DE')
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {isWaste ? (
+                        isEditing ? (
+                          <select
+                            value={tableEditingForm.subtype}
+                            onChange={(e) => setTableEditingForm((prev) => ({ ...prev, subtype: e.target.value }))}
+                            className="p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg"
+                          >
+                            {WASTE_SUBTYPES.map((subtype) => (
+                              <option key={subtype.id} value={subtype.id}>{subtype.label}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          getWasteSubtypeMeta(reading.subtype).label
+                        )
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={tableEditingForm.note}
+                          onChange={(e) => setTableEditingForm((prev) => ({ ...prev, note: e.target.value }))}
+                          className="w-64 max-w-full p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg"
+                        />
+                      ) : (
+                        reading.note || '–'
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <div className="flex flex-wrap gap-2">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveTableReading(reading)}
+                              className="text-xs px-2 py-1 rounded bg-blue-600 text-white"
+                            >
+                              Speichern
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelTableEdit}
+                              className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600"
+                            >
+                              Abbrechen
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleStartTableEdit(reading)}
+                              className="text-xs px-2 py-1 rounded border border-blue-300 text-blue-600"
+                            >
+                              Bearbeiten
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReading(reading.id)}
+                              className="text-xs px-2 py-1 rounded border border-red-300 text-red-600"
+                            >
+                              Löschen
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    );
+  };
+
   const renderInsight = () => {
     if (activeType === 'waste') {
       return null;
@@ -1060,7 +1397,7 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-4xl mx-auto space-y-8">
-        {isAIInsightsPage ? renderAIInsightsPage() : isElectricityPricingPage ? renderElectricityPricesPage() : (
+        {isAIInsightsPage ? renderAIInsightsPage() : isElectricityPricingPage ? renderElectricityPricesPage() : isDataTablePage ? renderDataTablePage() : (
           <>
             {renderStats()}
 
@@ -1089,6 +1426,14 @@ export default function Dashboard() {
                   required
                 />
               )}
+              <input
+                type="date"
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Ablesedatum"
+                required
+              />
               <button
                 type="submit"
                 disabled={addResult.fetching}
@@ -1231,6 +1576,15 @@ export default function Dashboard() {
                             onChange={(e) => setEditingForm((prev) => ({ ...prev, note: e.target.value }))}
                             className="w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
                             placeholder="Bemerkung (optional)"
+                          />
+
+                          <input
+                            type="date"
+                            value={editingForm.timestamp}
+                            onChange={(e) => setEditingForm((prev) => ({ ...prev, timestamp: e.target.value }))}
+                            className="w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                            aria-label="Ablesedatum bearbeiten"
+                            required
                           />
 
                           <div className="flex gap-2">

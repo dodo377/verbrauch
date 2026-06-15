@@ -147,8 +147,7 @@ docker compose down -v
 ## Doku-Aufteilung
 
 - Root: Gesamtarchitektur, Domänenlogik, Workflow
-- Frontend-Details: [frontend/README.md](frontend/README.md)
-- Backend-Details: [backend/README.md](backend/README.md)
+- Frontend- und Backend-Details sind aktuell in dieser Datei dokumentiert.
 
 ## Ziel des Projekts
 
@@ -172,10 +171,11 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 ### Dashboard-Features
 
 - Zeitraumfilter für letzte 7 Tage, letzte 30 Tage, Monatsansichten und Jahresauswertung
-- Statistik-Kacheln je Datentyp inkl. zusätzlichem "Heute"-Wert (Wasser: 7-Tage-Wert)
+- Statistik-Kacheln je Datentyp inkl. zusätzlichem "Heute"-Wert (Wasser: letzte Ablesung)
 - Diagramme mit `Recharts`
 - eigene Seite **AI Insights** als zusätzlicher Menüpunkt in der ersten Zeile (nach „Müll“)
 - eigene Seite **Strompreise** als zusätzlicher Menüpunkt in der ersten Zeile
+- eigene Seite **Datenübersicht** als tabellarische Gesamtansicht aller Einträge
 - AI-Insights mit Trend- und Anomalie-Erkennung pro Datentyp
 - konfigurierbare Schwellenwerte für Anomalie-Erkennung (IQR + Z-Score) auf der AI-Insights-Seite
 - Badge am oberen **AI Insights**-Button, wenn Auffälligkeiten vorliegen
@@ -188,6 +188,10 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 - automatische Prognose im Strompreise-Tab: Nachzahlung oder Gutschrift seit Jahresbeginn
 - zusätzliche Hochrechnung bis Jahresende
 - Abschlagslogik in der Prognose: Januar bis Mai fix 63,00 EUR pro Monat, ab Juni der eingetragene Abschlag
+- neue Einträge können rückwirkend mit frei wählbarem Datum erfasst werden
+- bestehende Einträge sind inkl. Datum direkt bearbeitbar
+- tabellarische Datenübersicht mit sinnvollen Filtern (Typ, Von/Bis-Datum, Suche, Sortierung)
+- Inline-Bearbeitung in der Tabellenansicht (Datum, Wert, Notiz, Müll-Subtype) inkl. direktem Speichern/Löschen
 
 ## Tech Stack
 
@@ -217,7 +221,6 @@ Das Projekt dokumentiert und analysiert Verbrauchs- und Umweltdaten mit einem kl
 ```text
 verbrauch_new/
 ├── backend/
-│   ├── README.md            # Backend-spezifische Start-/Test-/API-Doku
 │   ├── server.js
 │   └── src/
 │       ├── context/          # JWT-Context (buildContext)
@@ -232,7 +235,6 @@ verbrauch_new/
 │           ├── EnergyCostService.js
 │           └── ReadingService.js
 ├── frontend/
-│   ├── README.md            # Frontend-spezifische Start-/Build-Doku
 │   └── src/
 │       ├── components/
 │       ├── graphql/

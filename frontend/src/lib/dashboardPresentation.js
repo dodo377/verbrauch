@@ -2,6 +2,7 @@ export const TYPES = [
   { id: 'household', label: 'Haushaltsstrom', icon: '⚡' },
   { id: 'heatpump', label: 'Wärmepumpe', icon: '🌡️' },
   { id: 'electricity-prices', label: 'Strompreise', icon: '💶' },
+  { id: 'data-table', label: 'Datenübersicht', icon: '📋' },
   { id: 'water', label: 'Wasser', icon: '💧' },
   { id: 'temperature', label: 'Außentemperatur', icon: '❄️' },
   { id: 'waste', label: 'Müll', icon: '🗑️' },
@@ -203,7 +204,6 @@ export function getStatsViewModel(activeType, insights, wasteSummary, selectedRa
   }
 
   const isWater = activeType === 'water';
-
   const electricityCost = insights?.electricityCost;
   const hasElectricityCost = (activeType === 'household' || activeType === 'heatpump') && electricityCost;
 

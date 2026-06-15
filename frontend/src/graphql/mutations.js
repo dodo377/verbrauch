@@ -13,8 +13,8 @@ export const LOGIN_MUTATION = gql`
   }
 `;
 export const ADD_READING = gql`
-  mutation AddReading($type: ReadingType!, $value: Float!, $note: String, $subtype: String) {
-    addReading(type: $type, value: $value, note: $note, subtype: $subtype) {
+  mutation AddReading($type: ReadingType!, $value: Float!, $note: String, $subtype: String, $timestamp: String) {
+    addReading(type: $type, value: $value, note: $note, subtype: $subtype, timestamp: $timestamp) {
       id
       type
       value

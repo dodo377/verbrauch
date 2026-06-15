@@ -95,6 +95,19 @@ export const GET_DASHBOARD_DATA = gql`
   }
 `;
 
+export const GET_ALL_READINGS = gql`
+  query GetAllReadings($limit: Int) {
+    getReadings(limit: $limit) {
+      id
+      type
+      value
+      timestamp
+      note
+      subtype
+    }
+  }
+`;
+
 export const GET_STATS = gql`
   query GetStats($type: ReadingType!) {
     getConsumptionStats(type: $type) {
